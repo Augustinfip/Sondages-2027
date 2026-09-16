@@ -151,22 +151,50 @@ def parse_date_range(cell, ref_year_hint=None):
 
 def fetch_wikipedia_table():
     """
-    Récupère le tout premier tableau "wikitable" de la page — en pratique celui du
-    haut de la section de sondages premier tour, donc le plus récent.
-    Utilise pandas.read_html pour profiter de sa gestion des rowspan/colspan.
+    Récupère le tout premier tableau de sondages premier tour de la page (le plus
+    récent). Utilise pandas.read_html pour profiter de sa gestion des rowspan/colspan.
     """
     import io
     import pandas as pd
 
-    resp = requests.get(WIKI_URL, headers={"User-Agent": "poll-update-script/1.0"}, timeout=30)
+    resp = requests.get(
+        WIKI_URL,
+        headers={"User-Agent": "Mozilla/5.0 (compatible; poll-update-script/1.0; +github-actions)"},
+        timeout=30,
+    )
     resp.raise_for_status()
 
     # pandas récent exige un objet fichier-like (io.StringIO), pas une chaîne brute,
     # sinon il tente d'interpréter le HTML comme un chemin de fichier.
-    tables = pd.read_html(io.StringIO(resp.text), match="Polling firm")
+    tables = pd.read_html(io.StringIO(resp.text))
     if not tables:
-        raise RuntimeError("Aucun tableau de sondages trouvé sur la page.")
-    return tables[0]  # le premier = le plus récent
+        raise RuntimeError("Aucun tableau trouvé sur la page.")
+
+    # On identifie le bon tableau par la PRÉSENCE de colonnes "firm"/"date" plutôt
+    # que par un texte exact : plus robuste aux variations de mise en forme Wikipédia
+    # (ex. libellé caché dans une infobulle plutôt que dans le texte visible).
+    for t in tables:
+        cols_lower = [str(c).lower() for c in t.columns]
+        has_firm = any("firm" in c for c in cols_lower)
+        has_date = any("date" in c or "fieldwork" in c for c in cols_lower)
+        if has_firm and has_date:
+            # On renomme les colonnes repérées vers des noms fixes, pour que le
+            # reste du script n'ait pas à se soucier du libellé exact trouvé.
+            rename = {}
+            for c in t.columns:
+                cl = str(c).lower()
+                if "firm" in cl:
+                    rename[c] = "Polling firm"
+                elif "date" in cl or "fieldwork" in cl:
+                    rename[c] = "Fieldwork date"
+                elif "sample" in cl:
+                    rename[c] = "Sample size"
+            return t.rename(columns=rename)
+
+    raise RuntimeError(
+        "Aucun tableau de sondages identifiable (colonnes 'firm'/'date' introuvables). "
+        f"{len(tables)} tableau(x) trouvé(s) au total, aucun ne correspond."
+    )
 
 
 def main():
