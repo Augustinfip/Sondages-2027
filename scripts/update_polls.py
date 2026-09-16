@@ -35,6 +35,8 @@ from pathlib import Path
 import requests
 
 WIKI_URL = "https://en.wikipedia.org/wiki/Opinion_polling_for_the_2027_French_presidential_election"
+WIKI_API_URL = "https://en.wikipedia.org/w/api.php"
+WIKI_PAGE_TITLE = "Opinion_polling_for_the_2027_French_presidential_election"
 DATA_PATH = Path(__file__).parent.parent / "data.json"
 
 # Correspondance nom Wikipédia (anglais, complet) -> nom utilisé dans l'outil.
@@ -153,20 +155,38 @@ def fetch_wikipedia_table():
     """
     Récupère le tout premier tableau de sondages premier tour de la page (le plus
     récent). Utilise pandas.read_html pour profiter de sa gestion des rowspan/colspan.
+
+    Passe par l'API MediaWiki (action=parse) plutôt que par l'URL publique de
+    l'article : la page publique passe par un cache de contenu (CDN) qui peut
+    renvoyer des versions différentes de la page selon le serveur qui répond,
+    ce qui a été observé concrètement sur cette page très éditée. L'API interroge
+    directement le cache de rendu de MediaWiki, mis à jour à chaque modification,
+    et est donc beaucoup plus fiable pour un usage automatisé comme celui-ci.
     """
     import io
     import pandas as pd
 
     resp = requests.get(
-        WIKI_URL,
+        WIKI_API_URL,
+        params={
+            "action": "parse",
+            "page": WIKI_PAGE_TITLE,
+            "format": "json",
+            "formatversion": "2",
+            "prop": "text",
+        },
         headers={"User-Agent": "Mozilla/5.0 (compatible; poll-update-script/1.0; +github-actions)"},
         timeout=30,
     )
     resp.raise_for_status()
+    payload = resp.json()
+    if "error" in payload:
+        raise RuntimeError(f"Erreur API MediaWiki : {payload['error']}")
+    html = payload["parse"]["text"]
 
     # pandas récent exige un objet fichier-like (io.StringIO), pas une chaîne brute,
     # sinon il tente d'interpréter le HTML comme un chemin de fichier.
-    tables = pd.read_html(io.StringIO(resp.text))
+    tables = pd.read_html(io.StringIO(html))
     if not tables:
         raise RuntimeError("Aucun tableau trouvé sur la page.")
 
