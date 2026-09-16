@@ -194,6 +194,13 @@ def fetch_wikipedia_table():
     # que par un texte exact : plus robuste aux variations de mise en forme Wikipédia
     # (ex. libellé caché dans une infobulle plutôt que dans le texte visible).
     for t in tables:
+        # Certains tableaux ont un en-tête sur deux niveaux (colonnes fusionnées côté
+        # Wikipédia), ce que pandas restitue comme un MultiIndex de tuples, ex.
+        # ("Nathalie Arthaud", "Unnamed: 3_level_1"). On aplatit sur le premier niveau,
+        # qui porte le vrai libellé, pour retrouver des noms de colonnes simples.
+        if isinstance(t.columns, pd.MultiIndex):
+            t = t.copy()
+            t.columns = [c[0] if isinstance(c, tuple) else c for c in t.columns]
         cols_lower = [str(c).lower() for c in t.columns]
         has_firm = any("firm" in c for c in cols_lower)
         has_date = any("date" in c or "fieldwork" in c for c in cols_lower)
