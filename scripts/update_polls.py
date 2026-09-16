@@ -14,13 +14,14 @@ IMPORTANT — limites connues (à lire avant de faire confiance à ce script) :
   (le plus récent).
 - Les noms de candidats sur Wikipédia sont différents des nôtres (ex. "Marine Le Pen"
   vs "Le Pen"). Le dictionnaire NAME_MAP fait la correspondance ; tout nom absent de
-  ce dictionnaire est ignoré avec un avertissement plutôt que deviné.
+  ce dictionnaire déclenche désormais la création automatique du candidat (nom court
+  dérivé + bloc politique deviné via ses voisins de colonne).
 - Wikipédia ne donne pas de nom à chaque hypothèse (contrairement à l'Excel d'origine).
   Ce script en génère un automatiquement, avec la même logique que le bouton "Ajouter
   un sondage" de l'outil (reconnaissance par signature de candidats testés).
 - Ce script ne gère PAS le second tour (duels), uniquement le premier tour.
-- Il ne modifie et ne supprime jamais rien : il ne fait qu'ajouter des lignes qui
-  n'existent pas encore (comparaison par institut + date + candidats testés).
+- Il ne modifie et ne supprime jamais les sondages existants : il ajoute des lignes
+  qui n'existent pas encore (comparaison par institut + date + candidats testés).
 
 En cas d'échec, le script s'arrête proprement sans modifier data.json — la mise à jour
 suivante réessaiera automatiquement le lendemain.
@@ -40,7 +41,8 @@ WIKI_PAGE_TITLE = "Opinion_polling_for_the_2027_French_presidential_election"
 DATA_PATH = Path(__file__).parent.parent / "data.json"
 
 # Correspondance nom Wikipédia (anglais, complet) -> nom utilisé dans l'outil.
-# À compléter si un nouveau candidat apparaît (voir le rapport du script en cas de nom inconnu).
+# Sert surtout pour les cas particuliers ; les nouveaux candidats sont sinon détectés
+# et créés automatiquement (voir derive_short_name / infer_bloc_from_neighbors).
 NAME_MAP = {
     "Nathalie Arthaud": "Arthaud",
     "Philippe Poutou": "Poutou",
@@ -65,6 +67,56 @@ NAME_MAP = {
     "Bruno Le Maire": "Le Maire",
     "Jean Lassalle": "Lasalle",
 }
+
+PARTICLES = {"de", "du", "des", "le", "la", "van", "von"}
+
+
+def derive_short_name(full_name):
+    """
+    Dérive un nom court à partir du nom complet Wikipédia, sur le même principe que
+    les noms déjà utilisés dans l'outil (nom de famille seul, particules courantes
+    conservées : 'de Villepin', etc.).
+    """
+    parts = full_name.strip().split()
+    if len(parts) <= 1:
+        return full_name.strip()
+    surname_parts = [parts[-1]]
+    i = len(parts) - 2
+    while i >= 0 and parts[i].lower() in PARTICLES:
+        surname_parts.insert(0, parts[i])
+        i -= 1
+    return " ".join(surname_parts)
+
+
+def infer_bloc_from_neighbors(col_index, ordered_names, candidates_by_name):
+    """
+    Devine le bloc politique d'un nouveau candidat à partir de ses voisins de colonne
+    déjà connus. Wikipédia ordonne les candidats de gauche à droite sur l'échiquier
+    politique (indiqué explicitement dans le texte de la page), donc un candidat
+    encadré par deux candidats du même bloc est très probablement du même bloc.
+    """
+    left_bloc = None
+    for j in range(col_index - 1, -1, -1):
+        nm = ordered_names[j]
+        if nm in candidates_by_name:
+            left_bloc = candidates_by_name[nm]["bloc"]
+            break
+    right_bloc = None
+    for j in range(col_index + 1, len(ordered_names)):
+        nm = ordered_names[j]
+        if nm in candidates_by_name:
+            right_bloc = candidates_by_name[nm]["bloc"]
+            break
+    if left_bloc and left_bloc == right_bloc:
+        return left_bloc, True
+    if left_bloc and not right_bloc:
+        return left_bloc, True
+    if right_bloc and not left_bloc:
+        return right_bloc, True
+    if left_bloc and right_bloc:
+        return left_bloc, False  # blocs différents des deux côtés : à vérifier
+    return "CENTRE", False  # aucun voisin connu : repli par défaut, à vérifier
+
 
 BLOC_OF = {}  # rempli dynamiquement à partir de data.json ci-dessous
 
@@ -250,7 +302,43 @@ def main():
     # Colonnes attendues : "Polling firm", "Fieldwork date", "Sample size", puis un candidat par colonne
     candidate_cols = [c for c in header if c not in ("Polling firm", "Fieldwork date", "Sample size")]
 
-    unknown_names = set()
+    # --- Détection et création automatique des nouveaux candidats ---
+    # On résout chaque colonne candidat vers un nom connu (via NAME_MAP ou nom déjà
+    # présent dans data.json) ou, à défaut, on la considère comme un nouveau candidat :
+    # on lui dérive un nom court et on devine son bloc politique via ses voisins de
+    # colonne (Wikipédia ordonne les candidats de gauche à droite sur l'échiquier).
+    candidates_by_name = {c["name"]: c for c in known_candidates}
+    resolved_names = []  # même ordre que candidate_cols
+    newly_created = []
+    for col in candidate_cols:
+        col_clean = col.strip()
+        if col_clean in NAME_MAP and NAME_MAP[col_clean] in candidates_by_name:
+            resolved_names.append(NAME_MAP[col_clean])
+            continue
+        derived = derive_short_name(col_clean)
+        if derived in candidates_by_name:
+            resolved_names.append(derived)
+            continue
+        resolved_names.append(derived)  # nouveau nom, pas encore dans candidates_by_name
+
+    for idx, col in enumerate(candidate_cols):
+        name = resolved_names[idx]
+        if name in candidates_by_name:
+            continue
+        bloc, confident = infer_bloc_from_neighbors(idx, resolved_names, candidates_by_name)
+        new_candidate = {"name": name, "bloc": bloc}
+        known_candidates.append(new_candidate)
+        candidates_by_name[name] = new_candidate
+        newly_created.append((col.strip(), name, bloc, confident))
+
+    known_names = {c["name"] for c in known_candidates}
+
+    if newly_created:
+        print(f"[info] {len(newly_created)} nouveau(x) candidat(s) créé(s) automatiquement :")
+        for wiki_name, name, bloc, confident in newly_created:
+            flag = "" if confident else " ⚠️ bloc incertain, à vérifier/reclasser dans l'outil"
+            print(f"  - {wiki_name} -> {name} ({bloc}){flag}")
+
     new_polls = []
     current_institut, current_date, current_sample = None, None, None
 
@@ -276,11 +364,8 @@ def main():
         for c in known_names:
             scores[c] = None
         any_score = False
-        for col in candidate_cols:
-            mapped = NAME_MAP.get(col.strip())
-            if not mapped:
-                unknown_names.add(col.strip())
-                continue
+        for idx, col in enumerate(candidate_cols):
+            mapped = resolved_names[idx]
             val = parse_percent(str(row.get(col, "")))
             if val is not None:
                 scores[mapped] = val
@@ -325,16 +410,12 @@ def main():
             "source": "wikipedia-auto",
         })
 
-    if unknown_names:
-        print("::warning::Candidats non reconnus, ignorés (à ajouter dans NAME_MAP si besoin) : "
-              + ", ".join(sorted(unknown_names)))
-
-    if not new_polls:
+    if not new_polls and not newly_created:
         print("Aucun nouveau sondage détecté.")
         return
 
     data["polls"].extend(new_polls)
-    save_data(data)
+    save_data(data)  # sauvegarde aussi les éventuels nouveaux candidats, même sans sondage
 
     print(f"{len(new_polls)} nouveau(x) sondage(s) ajouté(s) :")
     for p in new_polls:
