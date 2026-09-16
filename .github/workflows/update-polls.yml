@@ -1,0 +1,55 @@
+yaml
+name: Mise à jour quotidienne des sondages
+
+on:
+  schedule:
+    # Tous les jours à 7h00 (heure de Paris, UTC+1 ou +2 selon la saison — ici 6h UTC)
+    - cron: "0 6 * * *"
+  workflow_dispatch: {} # permet aussi de le lancer manuellement depuis l'onglet "Actions"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-polls:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer les dépendances
+        run: pip install requests pandas lxml html5lib beautifulsoup4
+
+      - name: Lancer le script de mise à jour
+        run: python scripts/update_polls.py
+
+      - name: Vérifier s'il y a des changements
+        id: git-check
+        run: |
+          git diff --quiet data.json || echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Ouvrir une Pull Request si des sondages ont été ajoutés
+        if: steps.git-check.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "Nouveaux sondages détectés automatiquement"
+          title: "📊 Nouveaux sondages à valider"
+          body: |
+            Ce robot a trouvé de nouveaux sondages sur Wikipédia et propose de les ajouter.
+
+            **À vérifier avant de valider :**
+            - Les scores paraissent-ils cohérents avec les sondages précédents ?
+            - Le nom d'hypothèse généré automatiquement a-t-il un sens ?
+            - Le message ci-dessus (onglet "Actions" de ce workflow) signale-t-il des candidats non reconnus ?
+
+            Regarde l'onglet **"Files changed"** de cette Pull Request pour voir précisément les lignes ajoutées à `data.json`, puis clique sur **"Merge pull request"** pour publier ces sondages sur le site — ou ferme cette PR sans merger si quelque chose cloche.
+          branch: auto-update-polls
+          delete-branch: true
+          labels: |
+            sondages automatiques
