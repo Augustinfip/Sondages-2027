@@ -1552,7 +1552,6 @@ function exportUpdatedData() {
 
 document.getElementById("exportXlsxBtn").addEventListener("click", exportUpdatedXlsx);
 document.getElementById("exportHtmlBtn").addEventListener("click", exportUpdatedData);
-document.getElementById("addRejectBtn").addEventListener("click", handleAddReject);
 
 async function init() {
   try {
@@ -1594,7 +1593,6 @@ REF_2022 = dataset.referenceRows.find(r => /2022/.test(r.hypothese)) || null;
   renderCandidateList();
 renderInstitutList();
 renderMonthList();
-renderRejectForm();
 render();
 makeCardsCollapsible();
 }
