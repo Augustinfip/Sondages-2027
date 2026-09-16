@@ -218,6 +218,7 @@
         <p class="hint" style="margin-bottom:0; margin-top:4px;">Coché (recommandé) : décocher un candidat ne garde que les sondages où il est réellement absent, et recalcule les moyennes des autres dans ce scénario. Décoché : un candidat retiré disparaît juste du tableau, sans changer les moyennes des autres.</p>
       </div>
 
+
       <div class="card">
         <h2>Exporter les données à jour</h2>
         <p class="hint" style="margin-top:0;">Inclut les sondages ajoutés manuellement. Le fichier data.json peut remplacer celui du dépôt GitHub (par upload direct ou Pull Request).</p>
@@ -280,6 +281,7 @@
               <th title="Moyenne indicative sur l'ensemble des hypothèses testées">Moy. indic.</th>
               <th>1er tour 2017</th>
               <th>1er tour 2022</th>
+              <th title="Dernier taux de rejet publié — actuellement approximé par parti (Ipsos-BVA/CEVIPOF, 11/09/2026) plutôt que mesuré individuellement">Taux de rejet</th>
             </tr>
           </thead>
           <tbody id="resultsBody"><tr class="row-qualified">
@@ -694,6 +696,25 @@ function saveSubBlocOverrides() {
   try { localStorage.setItem(LS_KEY_SUBBLOC, JSON.stringify(SUB_BLOC)); } catch (e) { localStorageAvailable = false; }
 }
 
+function loadRejectionRates() {
+  // Les taux de rejet vivent uniquement dans data.json (pas de saisie côté interface) :
+  // on se contente d'un tableau vide si la clé n'existe pas encore dans le fichier.
+  dataset.rejectionRates = dataset.rejectionRates || [];
+}
+
+function latestRejectionRate(candidateName) {
+  const entries = (dataset.rejectionRates || []).filter(r => r.candidate === candidateName);
+  if (!entries.length) return null;
+  let best = null, bestTime = -Infinity;
+  entries.forEach(r => {
+    const d = parsePollDate(r.date);
+    if (!d) return;
+    const t = new Date(d.year, d.month - 1, d.day).getTime();
+    if (t > bestTime) { bestTime = t; best = r; }
+  });
+  return best;
+}
+
 function loadManualPolls() {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -1093,6 +1114,62 @@ function computeBaselineAverages() {
   return out;
 }
 
+function renderTrendSentence(polls) {
+  const buckets = [...new Set(polls.map(monthKeyOf).filter(Boolean))].sort();
+  if (buckets.length < 2) return '';
+  const candidates = dataset.candidates.filter(c => state.selectedCandidates.has(c.name));
+  const deltas = [];
+  candidates.forEach(c => {
+    const series = buckets.map(bKey => {
+      const inBucket = polls.filter(p => monthKeyOf(p) === bKey);
+      const vals = inBucket.map(p => p.scores[c.name]).filter(v => v !== null && v !== undefined);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    });
+    const firstIdx = series.findIndex(v => v !== null);
+    let lastIdx = -1;
+    for (let i = series.length - 1; i >= 0; i--) { if (series[i] !== null) { lastIdx = i; break; } }
+    if (firstIdx === -1 || lastIdx === -1 || firstIdx === lastIdx) return;
+    const delta = series[lastIdx] - series[firstIdx];
+    if (Math.abs(delta) >= 0.3) deltas.push({ name: c.name, delta });
+  });
+  if (!deltas.length) return '';
+  deltas.sort((a, b) => b.delta - a.delta);
+  const gainer = deltas[0];
+  const loser = deltas[deltas.length - 1];
+  const periodLabel = `${monthLabelOf(buckets[0])} → ${monthLabelOf(buckets[buckets.length - 1])}`;
+  const parts = [];
+  if (gainer && gainer.delta > 0) parts.push(`${gainer.name} +${gainer.delta.toFixed(1)} pt`);
+  if (loser && loser.delta < 0 && loser.name !== gainer.name) parts.push(`${loser.name} ${loser.delta.toFixed(1)} pt`);
+  if (!parts.length) return '';
+  return `<p class="hint" style="margin:0 0 10px; padding-bottom:10px; border-bottom:1px solid var(--border);"><strong>Tendance</strong> (${periodLabel}) : ${parts.join(', ')}.</p>`;
+}
+
+function renderPotentielRanking(results) {
+  const withBoth = results
+    .filter(r => r.moyenne !== null)
+    .map(r => {
+      const rr = latestRejectionRate(r.name);
+      if (!rr) return null;
+      return { name: r.name, moyenne: r.moyenne, rejet: rr.value, potentiel: r.moyenne * (100 - rr.value) / 100 };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.potentiel - a.potentiel);
+
+  if (withBoth.length === 0) return '';
+
+  const rows = withBoth.map((c, i) => `
+    <div class="analysis-row ${i < 2 ? 'analysis-gain' : ''}">
+      <span class="analysis-name">${i + 1}. ${c.name}</span>
+      <span class="analysis-detail">moyenne ${c.moyenne.toFixed(1)}% · rejet ${c.rejet.toFixed(1)}%</span>
+      <span class="analysis-delta">potentiel ${c.potentiel.toFixed(1)}</span>
+    </div>`).join('');
+  return `<div class="single-analysis" style="margin-top:0; padding-top:0; border-top:none;">
+    <p class="hint" style="margin-top:0;"><strong>Potentiel de rassemblement</strong> — moyenne × (100 − taux de rejet) ÷ 100, pour les candidats dont un taux de rejet a été renseigné :</p>
+    <p class="hint" style="margin-top:0; color:#a05a00;">⚠️ Les taux de rejet actuels sont approximés à partir du rejet du <strong>parti</strong> (pas de la personnalité elle-même), mesuré par l'enquête Ipsos-BVA/CEVIPOF du 11 septembre 2026 — à interpréter avec prudence.</p>
+    <div class="analysis-list">${rows}</div>
+  </div>`;
+}
+
 function renderRemovalAnalysis(results) {
   const unchecked = dataset.candidates.filter(c => !state.selectedCandidates.has(c.name));
   if (unchecked.length === 0) {
@@ -1220,6 +1297,7 @@ function updateLatestPollBadge() {
   el.style.display = "inline-flex";
 }
 
+
 function makeCardsCollapsible() {
   document.querySelectorAll('.layout-filters > .card').forEach(card => {
     const heading = card.querySelector('h2');
@@ -1276,7 +1354,7 @@ function render() {
     const isQualified = r.moyenne !== null && qualifiedCount < 2;
     if (isQualified) { qualifiedCount++; tr.className = "row-qualified"; }
     if (r.moyenne === null) {
-      tr.innerHTML = `<td><strong>${r.name}</strong></td><td><span class="bloc-tag tag-${cls}">${tagLabel}</span></td><td colspan="7" style="color:#999;">Aucune donnée pour les filtres actuels</td>`;
+      tr.innerHTML = `<td><strong>${r.name}</strong></td><td><span class="bloc-tag tag-${cls}">${tagLabel}</span></td><td colspan="8" style="color:#999;">Aucune donnée pour les filtres actuels</td>`;
     } else {
       const fmtRef = v => v === null ? '<span class="ref-empty">—</span>' : `${v.toFixed(2)}%`;
       tr.innerHTML = `
@@ -1294,6 +1372,7 @@ function render() {
         <td class="ref-cell">${fmtRef(refValue(REF_INDICATIVE, r.name))}</td>
         <td class="ref-cell">${fmtRef(refValue(REF_2017, r.name))}</td>
         <td class="ref-cell">${fmtRef(refValue(REF_2022, r.name))}</td>
+        <td class="ref-cell">${(() => { const rr = latestRejectionRate(r.name); return rr ? rr.value.toFixed(1) + "%" : '<span class="ref-empty">—</span>'; })()}</td>
       `;
     }
     tbody.appendChild(tr);
@@ -1344,6 +1423,8 @@ function render() {
   }
 
   document.getElementById("analysisBlock").innerHTML =
+    renderTrendSentence(polls) +
+    renderPotentielRanking(results) +
     renderRemovalAnalysis(results) + renderSingleCandidateAnalysis(getBaselinePolls());
 
   renderChart(polls);
@@ -1471,6 +1552,7 @@ function exportUpdatedData() {
 
 document.getElementById("exportXlsxBtn").addEventListener("click", exportUpdatedXlsx);
 document.getElementById("exportHtmlBtn").addEventListener("click", exportUpdatedData);
+document.getElementById("addRejectBtn").addEventListener("click", handleAddReject);
 
 async function init() {
   try {
@@ -1493,6 +1575,7 @@ async function init() {
   loadSubBlocOverrides();
 loadManualCandidates();
 loadManualPolls();
+loadRejectionRates();
   REF_INDICATIVE = dataset.referenceRows.find(r => /moyenne indicative/i.test(r.hypothese)) || null;
 REF_2017 = dataset.referenceRows.find(r => /2017/.test(r.hypothese)) || null;
 REF_2022 = dataset.referenceRows.find(r => /2022/.test(r.hypothese)) || null;
@@ -1511,6 +1594,7 @@ REF_2022 = dataset.referenceRows.find(r => /2022/.test(r.hypothese)) || null;
   renderCandidateList();
 renderInstitutList();
 renderMonthList();
+renderRejectForm();
 render();
 makeCardsCollapsible();
 }
