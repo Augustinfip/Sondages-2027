@@ -1,0 +1,1944 @@
+<!DOCTYPE html>
+<html lang="fr"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulateur de moyennes — Présidentielle 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --accent: #2b5fd9;
+    --accent-dark: #1c3f99;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --border: #e2e5ea;
+    --gauche: #e0473e;
+    --centre: #e8a83c;
+    --droite: #2b6fe0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 2px; }
+  .subtitle { color: var(--muted); margin-top: 0; margin-bottom: 20px; font-size: 0.92rem; }
+  .latest-poll-badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: #eef4ff; border: 1px solid #bcd2f7; color: #1a4fa0;
+    border-radius: 999px; padding: 6px 14px; font-size: 0.85rem; font-weight: 600;
+    margin: 8px 0 14px;
+  }
+  .latest-poll-badge strong { font-weight: 700; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 880px) { .layout { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .card h2 { font-size: 0.95rem; margin-top: 0; margin-bottom: 10px; }
+  .sticky { position: sticky; top: 16px; }
+  .bloc-header {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.82rem; font-weight: 700; margin: 14px 0 6px;
+    text-transform: uppercase; letter-spacing: 0.02em;
+  }
+  .bloc-header:first-child { margin-top: 0; }
+  .bloc-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .dot-gauche { background: var(--gauche); }
+  .dot-centre { background: var(--centre); }
+  .dot-droite { background: var(--droite); }
+  .mini-btn {
+    font-size: 0.72rem; color: var(--accent); background: none; border: none;
+    cursor: pointer; padding: 0 4px; font-weight: 600;
+  }
+  .mini-btn:hover { text-decoration: underline; }
+  .cand-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 0.88rem; }
+  .cand-row input { width: 15px; height: 15px; cursor: pointer; }
+  .cand-row label { cursor: pointer; flex: 1; }
+  .top-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .top-actions .mini-btn { font-size: 0.78rem; }
+  select, input[type="text"], input[type="file"] {
+    padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 0.85rem; background: white; width: 100%;
+  }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+  .institut-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px;
+    border: 1px solid var(--border); border-radius: 999px; font-size: 0.78rem;
+    cursor: pointer; user-select: none; background: white;
+  }
+  .chip input { width: 12px; height: 12px; }
+  .chip.active { background: #eef2ff; border-color: var(--accent); color: var(--accent-dark); }
+  table { width: 100%; border-collapse: collapse; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  @media (max-width: 880px) { .table-scroll table { min-width: 720px; } }
+  th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--border); font-size: 0.87rem; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.02em; }
+  .bar-cell { display: flex; align-items: center; gap: 8px; min-width: 160px; }
+  .bar-bg { flex: 1; background: #eef1f6; border-radius: 4px; height: 14px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; background: #eef2ff; color: var(--accent-dark); font-size: 0.72rem; font-weight: 600; }
+  .bloc-tag { font-size: 0.68rem; padding: 1px 6px; border-radius: 4px; color: white; font-weight: 600; }
+  .tag-gauche { background: var(--gauche); }
+  .tag-centre { background: var(--centre); }
+  .tag-droite { background: var(--droite); }
+  .summary-row { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+  .summary-box { flex: 1; min-width: 120px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; border-left-width: 4px; }
+  .summary-box.bloc-gauche { border-left-color: var(--gauche); }
+  .summary-box.bloc-gauche .val { color: var(--gauche); }
+  .summary-box.bloc-centre { border-left-color: var(--centre); }
+  .summary-box.bloc-centre .val { color: var(--centre); }
+  .summary-box.bloc-droite { border-left-color: var(--droite); }
+  .summary-box.bloc-droite .val { color: var(--droite); }
+  .summary-box .val { font-size: 1.3rem; font-weight: 700; }
+  .summary-box .lbl { font-size: 0.75rem; color: var(--muted); }
+  .moyenne-value { font-weight: 700; font-size: 0.98rem; }
+  .hint { font-size: 0.78rem; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+  .row-qualified { background: #eaf1fb; }
+  .row-qualified td:first-child strong { color: #1a56c4; }
+  .ref-cell { color: var(--muted); font-size: 0.83rem; }
+  .ref-empty { color: #c7cbd3; }
+  .ref-line {
+    margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);
+    display: flex; flex-direction: column; gap: 2px;
+    font-size: 0.7rem; color: var(--muted);
+  }
+  .analysis-list { display: flex; flex-direction: column; gap: 2px; }
+  .analysis-row {
+    display: flex; align-items: center; gap: 10px; padding: 6px 8px;
+    border-radius: 6px; font-size: 0.85rem;
+  }
+  .analysis-row:nth-child(odd) { background: #f7f8fa; }
+  .analysis-name { flex: 1; font-weight: 600; }
+  .analysis-delta { font-weight: 700; min-width: 90px; }
+  .analysis-detail { color: var(--muted); font-size: 0.78rem; }
+  .analysis-gain .analysis-delta { color: #1a7f37; }
+  .analysis-loss .analysis-delta { color: #c0392b; }
+  .analysis-neutral .analysis-delta { color: var(--muted); }
+  .single-analysis { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .single-analysis summary { margin-top: 4px; }
+  #classifyReminder {
+    background: #fff6e5; border: 1px solid #f0c96b; border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 16px; font-size: 0.85rem;
+  }
+  #classifyReminder h3 { margin: 0 0 6px; font-size: 0.9rem; }
+  .classify-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; flex-wrap: wrap; }
+  .classify-row select { width: auto; padding: 5px 8px; }
+  .score-grid { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; padding-right: 2px; }
+  .score-row { display: flex; align-items: center; gap: 8px; font-size: 0.83rem; padding: 2px 0; }
+  .score-row label { flex: 1; }
+  .score-row input { width: 62px; padding: 4px 6px; text-align: right; }
+  button.primary {
+    background: var(--accent); color: white; border: none; padding: 8px 14px;
+    border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  }
+  button.primary:hover { background: var(--accent-dark); }
+  button.secondary {
+    background: white; color: var(--accent); border: 1px solid var(--accent);
+    padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  }
+  button.secondary:hover { background: #eef2ff; }
+  #fileStatus { font-size: 0.78rem; margin-top: 6px; }
+  #fileStatus.ok { color: #1a7f37; }
+  #fileStatus.err { color: #c0392b; }
+  footer { text-align: center; color: var(--muted); font-size: 0.76rem; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Simulateur de moyennes — sondages présidentielle 2026</h1>
+  <div id="latestPollBadge" class="latest-poll-badge" style="display:none;"></div>
+  <p class="subtitle" id="subtitleText">Décochez des candidats, filtrez par institut, par mois ou par hypothèse : les moyennes se recalculent instantanément. 80 sondage(s) et 23 candidat(s) testé(s) au total — 19 vague(s) de terrain représentant 28 147 personne(s) interrogée(s), dont 25 522 inscrite(s) sur les listes électorales.</p>
+  <div id="classifyReminder" style="display: block;">
+    <h3>⚠️ Candidat(s) non classé(s) politiquement</h3>
+    <p class="hint" style="margin:0 0 8px;">Classe-les pour que le résumé "par tendance politique" (Gauche radicale/classique, Centre gauche/droit, Droite classique/radicale) les prenne en compte — sinon ils restent dans le groupe "Non classé", visible dans la liste des candidats et dans ce résumé. Le choix est sauvegardé dans ce navigateur.</p>
+    <div class="classify-row">
+      <strong>Lasalle</strong> <span class="hint">(Droite)</span>
+      <select data-classify="Lasalle">
+        <option value="">— Non classé —</option>
+        <option value="Gauche radicale">Gauche radicale</option><option value="Gauche classique">Gauche classique</option><option value="Centre gauche">Centre gauche</option><option value="Centre droit">Centre droit</option><option value="Droite classique">Droite classique</option><option value="Droite radicale">Droite radicale</option>
+      </select>
+    </div></div>
+
+  <div class="layout">
+    <div class="sticky">
+      <div class="card">
+        <div class="top-actions">
+          <h2 style="margin:0;">Candidats</h2>
+          <div>
+            <button class="mini-btn" id="selAll">Tout cocher</button> ·
+            <button class="mini-btn" id="selNone">Tout décocher</button>
+          </div>
+        </div>
+        <div id="candidateList"><div class="bloc-header"><span><span class="bloc-dot" style="background:#a5231e"></span>Gauche radicale</span>
+      <span><button class="mini-btn bloc-all" data-subbloc="Gauche radicale">tous</button> · <button class="mini-btn bloc-none" data-subbloc="Gauche radicale">aucun</button></span></div><div class="cand-row"><input type="checkbox" data-cand="Mélenchon" checked=""><label>Mélenchon</label></div><div class="cand-row"><input type="checkbox" data-cand="Poutou" checked=""><label>Poutou</label></div><div class="cand-row"><input type="checkbox" data-cand="Arthaud" checked=""><label>Arthaud</label></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#e0473e"></span>Gauche classique</span>
+      <span><button class="mini-btn bloc-all" data-subbloc="Gauche classique">tous</button> · <button class="mini-btn bloc-none" data-subbloc="Gauche classique">aucun</button></span></div><div class="cand-row"><input type="checkbox" data-cand="Glucksmann" checked=""><label>Glucksmann</label></div><div class="cand-row"><input type="checkbox" data-cand="Roussel" checked=""><label>Roussel</label></div><div class="cand-row"><input type="checkbox" data-cand="Tondelier" checked=""><label>Tondelier</label></div><div class="cand-row"><input type="checkbox" data-cand="Hollande" checked=""><label>Hollande</label></div><div class="cand-row"><input type="checkbox" data-cand="Faure" checked=""><label>Faure</label></div><div class="cand-row"><input type="checkbox" data-cand="Ruffin" checked=""><label>Ruffin</label></div><div class="cand-row"><input type="checkbox" data-cand="de Villepin" checked=""><label>de Villepin</label></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#c97b2e"></span>Centre gauche</span>
+      <span><button class="mini-btn bloc-all" data-subbloc="Centre gauche">tous</button> · <button class="mini-btn bloc-none" data-subbloc="Centre gauche">aucun</button></span></div><div class="cand-row"><input type="checkbox" data-cand="Attal" checked=""><label>Attal</label></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#e8a83c"></span>Centre droit</span>
+      <span><button class="mini-btn bloc-all" data-subbloc="Centre droit">tous</button> · <button class="mini-btn bloc-none" data-subbloc="Centre droit">aucun</button></span></div><div class="cand-row"><input type="checkbox" data-cand="Philippe" checked=""><label>Philippe</label></div><div class="cand-row"><input type="checkbox" data-cand="Le Maire" checked=""><label>Le Maire</label></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#5b8fe0"></span>Droite classique</span>
+      <span><button class="mini-btn bloc-all" data-subbloc="Droite classique">tous</button> · <button class="mini-btn bloc-none" data-subbloc="Droite classique">aucun</button></span></div><div class="cand-row"><input type="checkbox" data-cand="Retailleau" checked=""><label>Retailleau</label></div><div class="cand-row"><input type="checkbox" data-cand="Bertrand" checked=""><label>Bertrand</label></div><div class="cand-row"><input type="checkbox" data-cand="Lisnard" checked=""><label>Lisnard</label></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#1c3f99"></span>Droite radicale</span>
+      <span><button class="mini-btn bloc-all" data-subbloc="Droite radicale">tous</button> · <button class="mini-btn bloc-none" data-subbloc="Droite radicale">aucun</button></span></div><div class="cand-row"><input type="checkbox" data-cand="Bardella" checked=""><label>Bardella</label></div><div class="cand-row"><input type="checkbox" data-cand="Le Pen" checked=""><label>Le Pen</label></div><div class="cand-row"><input type="checkbox" data-cand="Zemmour" checked=""><label>Zemmour</label></div><div class="cand-row"><input type="checkbox" data-cand="Knafo" checked=""><label>Knafo</label></div><div class="cand-row"><input type="checkbox" data-cand="Asselineau" checked=""><label>Asselineau</label></div><div class="cand-row"><input type="checkbox" data-cand="Dupont-Aignan" checked=""><label>Dupont-Aignan</label></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#8a8f99"></span>Non classé</span>
+      <span><button class="mini-btn bloc-all" data-subbloc="Non classé">tous</button> · <button class="mini-btn bloc-none" data-subbloc="Non classé">aucun</button></span></div><div class="cand-row"><input type="checkbox" data-cand="Lasalle" checked=""><label>Lasalle</label></div></div>
+      </div>
+
+      <div class="card">
+        <h2>Instituts</h2>
+        <div class="institut-list" id="institutList"><label class="chip active"><input type="checkbox" checked=""> Elabe</label><label class="chip active"><input type="checkbox" checked=""> Ifop</label><label class="chip active"><input type="checkbox" checked=""> Ipsos</label><label class="chip active"><input type="checkbox" checked=""> Odoxa</label><label class="chip active"><input type="checkbox" checked=""> OpinionWay</label><label class="chip active"><input type="checkbox" checked=""> Toluna</label><label class="chip active"><input type="checkbox" checked=""> Verian</label></div>
+      </div>
+
+      <div class="card">
+        <div class="top-actions">
+          <h2 style="margin:0;">Période</h2>
+          <div>
+            <button class="mini-btn" id="monthAll">Tous les mois</button> ·
+            <button class="mini-btn" id="monthNone">Aucun</button>
+          </div>
+        </div>
+        <div class="institut-list" id="monthList"><label class="chip active"><input type="checkbox" checked=""> Mars 2026</label><label class="chip active"><input type="checkbox" checked=""> Mai 2026</label><label class="chip active"><input type="checkbox" checked=""> Juin 2026</label><label class="chip active"><input type="checkbox" checked=""> Juillet 2026</label><label class="chip active"><input type="checkbox" checked=""> Août 2026</label><label class="chip active"><input type="checkbox" checked=""> Septembre 2026</label></div>
+        <p class="hint" style="margin-bottom:0;">Décochez un mois pour l'exclure des moyennes (ex : décocher juillet et août pour ne garder que septembre).</p>
+      </div>
+
+      <div class="card">
+        <h2>Hypothèses</h2>
+        <div class="field">
+          <label>Filtrer par mot-clé (ex : "Bardella", "Hypothèse 3")</label>
+          <input type="text" id="hypSearch" placeholder="Rechercher...">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color: var(--text); font-weight: 400;">
+            <input type="checkbox" id="excludeUnselected" style="width:14px;height:14px;" checked="">
+            Ne garder que les sondages où les candidats décochés sont absents (simule leur absence)
+          </label>
+          <p class="hint" style="margin-bottom:0;">Décochée : un candidat retiré disparaît juste du tableau, sans changer les moyennes des autres.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Importer un fichier mis à jour</h2>
+        <input type="file" id="fileInput" accept=".xlsx,.xls">
+        <div class="hint">Le fichier doit avoir la même structure que "Détail par institut" (colonnes Clé / Hypothèse / Institut / Date, puis un candidat par colonne).</div>
+        <div id="fileStatus"></div>
+      </div>
+
+      <div class="card">
+        <h2>Ajouter un sondage</h2>
+        <div class="field">
+          <label>Institut</label>
+          <input type="text" id="newPollInstitut" placeholder="Ex : Ifop">
+        </div>
+        <div class="field">
+          <label>Date du sondage</label>
+          <input type="date" id="newPollDate">
+        </div>
+        <div class="field">
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Hypothèse testée</span>
+            <span class="hint" style="font-weight:400;">optionnel — détectée automatiquement sinon</span>
+          </label>
+          <input type="text" id="newPollHypothese" placeholder="Laisser vide : reconnue automatiquement d'après les scores saisis">
+        </div>
+        <div class="field" style="display:flex; gap:8px;">
+          <div style="flex:1;">
+            <label style="display:block; font-size:0.78rem; color:var(--muted); font-weight:600; margin-bottom:4px;">Échantillon (nb. sondés)</label>
+            <input type="number" id="newPollSample" min="0" placeholder="Ex : 1500">
+          </div>
+          <div style="flex:1;">
+            <label style="display:block; font-size:0.78rem; color:var(--muted); font-weight:600; margin-bottom:4px;">Dont inscrits sur les listes</label>
+            <input type="number" id="newPollRegistered" min="0" placeholder="Ex : 1390">
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:6px;">
+          <label style="margin-bottom:2px;">Scores par candidat (%) — laisser vide si non testé</label>
+        </div>
+        <div id="newPollScores"><div class="score-grid"><div class="bloc-header"><span><span class="bloc-dot" style="background:#a5231e"></span>Gauche radicale</span></div><div class="score-row"><label>Mélenchon</label><input type="number" step="0.1" min="0" max="100" data-newscore="Mélenchon"></div><div class="score-row"><label>Poutou</label><input type="number" step="0.1" min="0" max="100" data-newscore="Poutou"></div><div class="score-row"><label>Arthaud</label><input type="number" step="0.1" min="0" max="100" data-newscore="Arthaud"></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#e0473e"></span>Gauche classique</span></div><div class="score-row"><label>Glucksmann</label><input type="number" step="0.1" min="0" max="100" data-newscore="Glucksmann"></div><div class="score-row"><label>Roussel</label><input type="number" step="0.1" min="0" max="100" data-newscore="Roussel"></div><div class="score-row"><label>Tondelier</label><input type="number" step="0.1" min="0" max="100" data-newscore="Tondelier"></div><div class="score-row"><label>Hollande</label><input type="number" step="0.1" min="0" max="100" data-newscore="Hollande"></div><div class="score-row"><label>Faure</label><input type="number" step="0.1" min="0" max="100" data-newscore="Faure"></div><div class="score-row"><label>Ruffin</label><input type="number" step="0.1" min="0" max="100" data-newscore="Ruffin"></div><div class="score-row"><label>de Villepin</label><input type="number" step="0.1" min="0" max="100" data-newscore="de Villepin"></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#c97b2e"></span>Centre gauche</span></div><div class="score-row"><label>Attal</label><input type="number" step="0.1" min="0" max="100" data-newscore="Attal"></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#e8a83c"></span>Centre droit</span></div><div class="score-row"><label>Philippe</label><input type="number" step="0.1" min="0" max="100" data-newscore="Philippe"></div><div class="score-row"><label>Le Maire</label><input type="number" step="0.1" min="0" max="100" data-newscore="Le Maire"></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#5b8fe0"></span>Droite classique</span></div><div class="score-row"><label>Retailleau</label><input type="number" step="0.1" min="0" max="100" data-newscore="Retailleau"></div><div class="score-row"><label>Bertrand</label><input type="number" step="0.1" min="0" max="100" data-newscore="Bertrand"></div><div class="score-row"><label>Lisnard</label><input type="number" step="0.1" min="0" max="100" data-newscore="Lisnard"></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#1c3f99"></span>Droite radicale</span></div><div class="score-row"><label>Bardella</label><input type="number" step="0.1" min="0" max="100" data-newscore="Bardella"></div><div class="score-row"><label>Le Pen</label><input type="number" step="0.1" min="0" max="100" data-newscore="Le Pen"></div><div class="score-row"><label>Zemmour</label><input type="number" step="0.1" min="0" max="100" data-newscore="Zemmour"></div><div class="score-row"><label>Knafo</label><input type="number" step="0.1" min="0" max="100" data-newscore="Knafo"></div><div class="score-row"><label>Asselineau</label><input type="number" step="0.1" min="0" max="100" data-newscore="Asselineau"></div><div class="score-row"><label>Dupont-Aignan</label><input type="number" step="0.1" min="0" max="100" data-newscore="Dupont-Aignan"></div><div class="bloc-header"><span><span class="bloc-dot" style="background:#8a8f99"></span>Non classé</span></div><div class="score-row"><label>Lasalle</label><input type="number" step="0.1" min="0" max="100" data-newscore="Lasalle"></div></div></div>
+
+        <div style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border);">
+          <label style="display:block; font-size:0.78rem; color:var(--muted); font-weight:600; margin-bottom:6px;">Ce candidat n'est pas encore dans la liste ?</label>
+          <div class="field">
+            <input type="text" id="newCandidateName" placeholder="Nom du nouveau candidat">
+          </div>
+          <div class="field" style="display:flex; gap:8px;">
+            <select id="newCandidateBloc" style="flex:1;">
+              <option value="">Bloc politique...</option>
+              <option value="BLOC GAUCHE">Gauche</option>
+              <option value="CENTRE">Centre</option>
+              <option value="BLOC DROITE">Droite</option>
+            </select>
+            <select id="newCandidateSubBloc" style="flex:1;">
+              <option value="">Tendance (optionnel)</option>
+            <option value="Gauche radicale">Gauche radicale</option><option value="Gauche classique">Gauche classique</option><option value="Centre gauche">Centre gauche</option><option value="Centre droit">Centre droit</option><option value="Droite classique">Droite classique</option><option value="Droite radicale">Droite radicale</option></select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label style="display:block; font-size:0.78rem; color:var(--muted); font-weight:600; margin-bottom:4px;">Son score dans ce sondage (%)</label>
+            <input type="number" id="newCandidateScore" step="0.1" min="0" max="100" placeholder="Ex : 4.5">
+          </div>
+        </div>
+
+        <button class="primary" id="addPollBtn" style="margin-top:10px; width:100%;">Ajouter ce sondage</button>
+        <div id="addPollStatus" class="hint" style="margin-top:6px;"></div>
+        <div class="hint" style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+          <span id="manualPollsCount">0 sondage(s) ajouté(s) manuellement, sauvegardé(s) dans ce navigateur.</span>
+          <button class="mini-btn" id="clearManualPolls">Vider</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Exporter les données à jour</h2>
+        <p class="hint" style="margin-top:0;">Inclut les sondages ajoutés manuellement. Le fichier data.json peut remplacer celui du dépôt GitHub (par upload direct ou Pull Request).</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="secondary" id="exportXlsxBtn" style="flex:1;">Exporter en .xlsx</button>
+          <button class="secondary" id="exportHtmlBtn" style="flex:1;">Exporter data.json à jour</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="top-actions">
+          <h2 style="margin-bottom:2px;">Résumé par bloc</h2>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.8rem; font-weight:600; color: var(--text);">
+            <input type="checkbox" id="subdivideBloc" style="width:14px;height:14px;">
+            Détail par tendance politique (6 groupes)
+          </label>
+        </div>
+        <p class="hint" style="margin-top:0;">Moyenne, sondage par sondage, du score total réellement mesuré pour chaque bloc dans les hypothèses retenues (respecte vos filtres candidats/instituts/hypothèses).</p>
+        <div class="summary-row" id="blocSummary"><div class="summary-box bloc-gauche">
+        <div class="val">32.6%</div>
+        <div class="lbl">Gauche — moyenne sur 80 sondages</div>
+        <div class="ref-line">
+          <span>Moy. indic. : 32.6%</span>
+          <span>1er tour 2017 : 27.7%</span>
+          <span>1er tour 2022 : 31.9%</span>
+        </div></div><div class="summary-box bloc-centre">
+        <div class="val">18.6%</div>
+        <div class="lbl">Centre — moyenne sur 80 sondages</div>
+        <div class="ref-line">
+          <span>Moy. indic. : 18.6%</span>
+          <span>1er tour 2017 : 24.0%</span>
+          <span>1er tour 2022 : 27.9%</span>
+        </div></div><div class="summary-box bloc-droite">
+        <div class="val">48.9%</div>
+        <div class="lbl">Droite — moyenne sur 80 sondages</div>
+        <div class="ref-line">
+          <span>Moy. indic. : 48.9%</span>
+          <span>1er tour 2017 : 48.3%</span>
+          <span>1er tour 2022 : 40.2%</span>
+        </div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="top-actions">
+          <h2 style="margin:0;">Moyennes par candidat</h2>
+          <button class="secondary" id="exportBtn">Exporter en CSV</button>
+        </div>
+        <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Candidat</th>
+              <th>Bloc</th>
+              <th>Sondages pris en compte</th>
+              <th>Moyenne</th>
+              <th>Min</th>
+              <th>Max</th>
+              <th title="Moyenne indicative sur l'ensemble des hypothèses testées">Moy. indic.</th>
+              <th>1er tour 2017</th>
+              <th>1er tour 2022</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"><tr class="row-qualified">
+        <td><strong>Bardella</strong></td>
+        <td><span class="bloc-tag tag-droite">Droite</span></td>
+        <td><span class="badge">29</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:100.0%; background:var(--droite)"></div></div>
+            <span class="moyenne-value">34.62%</span>
+          </div>
+        </td>
+        <td>32.00%</td>
+        <td>38.00%</td>
+        <td class="ref-cell">34.62%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr class="row-qualified">
+        <td><strong>Le Pen</strong></td>
+        <td><span class="bloc-tag tag-droite">Droite</span></td>
+        <td><span class="badge">51</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:98.6%; background:var(--droite)"></div></div>
+            <span class="moyenne-value">34.15%</span>
+          </div>
+        </td>
+        <td>31.00%</td>
+        <td>37.00%</td>
+        <td class="ref-cell">34.15%</td>
+        <td class="ref-cell">21.30%</td>
+        <td class="ref-cell">23.15%</td>
+      </tr><tr>
+        <td><strong>Philippe</strong></td>
+        <td><span class="bloc-tag tag-centre">Centre</span></td>
+        <td><span class="badge">54</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:52.5%; background:var(--centre)"></div></div>
+            <span class="moyenne-value">18.18%</span>
+          </div>
+        </td>
+        <td>13.00%</td>
+        <td>25.50%</td>
+        <td class="ref-cell">18.18%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr>
+        <td><strong>Mélenchon</strong></td>
+        <td><span class="bloc-tag tag-gauche">Gauche</span></td>
+        <td><span class="badge">80</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:42.0%; background:var(--gauche)"></div></div>
+            <span class="moyenne-value">14.56%</span>
+          </div>
+        </td>
+        <td>10.50%</td>
+        <td>19.00%</td>
+        <td class="ref-cell">14.56%</td>
+        <td class="ref-cell">19.58%</td>
+        <td class="ref-cell">21.95%</td>
+      </tr><tr>
+        <td><strong>Attal</strong></td>
+        <td><span class="bloc-tag tag-centre">Centre</span></td>
+        <td><span class="badge">41</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:35.0%; background:var(--centre)"></div></div>
+            <span class="moyenne-value">12.13%</span>
+          </div>
+        </td>
+        <td>6.50%</td>
+        <td>18.50%</td>
+        <td class="ref-cell">12.13%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr>
+        <td><strong>Glucksmann</strong></td>
+        <td><span class="bloc-tag tag-gauche">Gauche</span></td>
+        <td><span class="badge">57</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:33.2%; background:var(--gauche)"></div></div>
+            <span class="moyenne-value">11.49%</span>
+          </div>
+        </td>
+        <td>8.00%</td>
+        <td>18.00%</td>
+        <td class="ref-cell">11.49%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr>
+        <td><strong>Retailleau</strong></td>
+        <td><span class="bloc-tag tag-droite">Droite</span></td>
+        <td><span class="badge">79</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:25.8%; background:var(--droite)"></div></div>
+            <span class="moyenne-value">8.92%</span>
+          </div>
+        </td>
+        <td>6.00%</td>
+        <td>14.00%</td>
+        <td class="ref-cell">8.92%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr>
+        <td><strong>Hollande</strong></td>
+        <td><span class="bloc-tag tag-gauche">Gauche</span></td>
+        <td><span class="badge">17</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:24.2%; background:var(--gauche)"></div></div>
+            <span class="moyenne-value">8.38%</span>
+          </div>
+        </td>
+        <td>7.00%</td>
+        <td>12.00%</td>
+        <td class="ref-cell">8.38%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr>
+        <td><strong>Le Maire</strong></td>
+        <td><span class="bloc-tag tag-centre">Centre</span></td>
+        <td><span class="badge">1</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:17.3%; background:var(--centre)"></div></div>
+            <span class="moyenne-value">6.00%</span>
+          </div>
+        </td>
+        <td>6.00%</td>
+        <td>6.00%</td>
+        <td class="ref-cell">6.00%</td>
+        <td class="ref-cell">24.01%</td>
+        <td class="ref-cell">27.85%</td>
+      </tr><tr>
+        <td><strong>Ruffin</strong></td>
+        <td><span class="bloc-tag tag-gauche">Gauche</span></td>
+        <td><span class="badge">4</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:15.2%; background:var(--gauche)"></div></div>
+            <span class="moyenne-value">5.25%</span>
+          </div>
+        </td>
+        <td>3.00%</td>
+        <td>6.00%</td>
+        <td class="ref-cell">5.25%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr>
+        <td><strong>Knafo</strong></td>
+        <td><span class="bloc-tag tag-droite">Droite</span></td>
+        <td><span class="badge">2</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:13.0%; background:var(--droite)"></div></div>
+            <span class="moyenne-value">4.50%</span>
+          </div>
+        </td>
+        <td>4.00%</td>
+        <td>5.00%</td>
+        <td class="ref-cell">4.50%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr>
+        <td><strong>Faure</strong></td>
+        <td><span class="bloc-tag tag-gauche">Gauche</span></td>
+        <td><span class="badge">6</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:12.8%; background:var(--gauche)"></div></div>
+            <span class="moyenne-value">4.42%</span>
+          </div>
+        </td>
+        <td>3.50%</td>
+        <td>5.50%</td>
+        <td class="ref-cell">4.42%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr>
+        <td><strong>Tondelier</strong></td>
+        <td><span class="bloc-tag tag-gauche">Gauche</span></td>
+        <td><span class="badge">67</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:11.1%; background:var(--gauche)"></div></div>
+            <span class="moyenne-value">3.85%</span>
+          </div>
+        </td>
+        <td>2.00%</td>
+        <td>5.50%</td>
+        <td class="ref-cell">3.85%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr>
+        <td><strong>Zemmour</strong></td>
+        <td><span class="bloc-tag tag-droite">Droite</span></td>
+        <td><span class="badge">78</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:11.0%; background:var(--droite)"></div></div>
+            <span class="moyenne-value">3.81%</span>
+          </div>
+        </td>
+        <td>2.50%</td>
+        <td>6.00%</td>
+        <td class="ref-cell">3.81%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell">7.07%</td>
+      </tr><tr>
+        <td><strong>Roussel</strong></td>
+        <td><span class="bloc-tag tag-gauche">Gauche</span></td>
+        <td><span class="badge">72</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:8.7%; background:var(--gauche)"></div></div>
+            <span class="moyenne-value">3.01%</span>
+          </div>
+        </td>
+        <td>2.00%</td>
+        <td>6.00%</td>
+        <td class="ref-cell">3.01%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell">2.28%</td>
+      </tr><tr>
+        <td><strong>de Villepin</strong></td>
+        <td><span class="bloc-tag tag-gauche">Gauche</span></td>
+        <td><span class="badge">15</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:8.6%; background:var(--gauche)"></div></div>
+            <span class="moyenne-value">2.97%</span>
+          </div>
+        </td>
+        <td>2.00%</td>
+        <td>6.00%</td>
+        <td class="ref-cell">2.97%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr>
+        <td><strong>Lisnard</strong></td>
+        <td><span class="bloc-tag tag-droite">Droite</span></td>
+        <td><span class="badge">3</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:8.2%; background:var(--droite)"></div></div>
+            <span class="moyenne-value">2.83%</span>
+          </div>
+        </td>
+        <td>2.00%</td>
+        <td>3.50%</td>
+        <td class="ref-cell">2.83%</td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+        <td class="ref-cell"><span class="ref-empty">—</span></td>
+      </tr><tr>
+        <td><strong>Dupont-Aignan</strong></td>
+        <td><span class="bloc-tag tag-droite">Droite</span></td>
+        <td><span class="badge">73</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:5.7%; background:var(--droite)"></div></div>
+            <span class="moyenne-value">1.97%</span>
+          </div>
+        </td>
+        <td>1.00%</td>
+        <td>3.00%</td>
+        <td class="ref-cell">1.97%</td>
+        <td class="ref-cell">4.70%</td>
+        <td class="ref-cell">2.06%</td>
+      </tr><tr>
+        <td><strong>Arthaud</strong></td>
+        <td><span class="bloc-tag tag-gauche">Gauche</span></td>
+        <td><span class="badge">79</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:2.9%; background:var(--gauche)"></div></div>
+            <span class="moyenne-value">0.99%</span>
+          </div>
+        </td>
+        <td>0.50%</td>
+        <td>2.00%</td>
+        <td class="ref-cell">0.99%</td>
+        <td class="ref-cell">0.64%</td>
+        <td class="ref-cell">0.56%</td>
+      </tr><tr><td><strong>Poutou</strong></td><td><span class="bloc-tag tag-gauche">Gauche</span></td><td colspan="7" style="color:#999;">Aucune donnée pour les filtres actuels</td></tr><tr><td><strong>Lasalle</strong></td><td><span class="bloc-tag tag-droite">Droite</span></td><td colspan="7" style="color:#999;">Aucune donnée pour les filtres actuels</td></tr><tr><td><strong>Asselineau</strong></td><td><span class="bloc-tag tag-droite">Droite</span></td><td colspan="7" style="color:#999;">Aucune donnée pour les filtres actuels</td></tr><tr><td><strong>Bertrand</strong></td><td><span class="bloc-tag tag-droite">Droite</span></td><td colspan="7" style="color:#999;">Aucune donnée pour les filtres actuels</td></tr></tbody>
+        </table>
+        </div>
+        <p class="hint" id="pollCountHint">80 sondage(s) pris en compte avec les filtres actuels sur 80 disponible(s) · 23 candidat(s) affiché(s) sur 23 au total · 28 147 personne(s) interrogée(s) sur 19 vague(s) de terrain.</p>
+      </div>
+
+      <div class="card">
+        <h2 style="margin-bottom:2px;">Analyse</h2>
+        <p class="hint" style="margin-top:0;">Effet du retrait des candidats décochés sur les autres, et meilleur/pire scénario quand un seul candidat est sélectionné.</p>
+        <div id="analysisBlock"><p class="hint" style="margin-top:0;">Tous les candidats sont actuellement inclus — décochez-en un pour voir qui bénéficie de son retrait.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="top-actions">
+          <h2 style="margin:0;">Évolution dans le temps</h2>
+          <div class="field" style="margin:0; width:auto; display:flex; gap:8px;">
+            <select id="chartZoom" style="width:auto;">
+              <option value="all">Tout l'historique</option>
+              <option value="3m">3 derniers mois</option>
+              <option value="1m">1 dernier mois</option>
+            </select>
+            <select id="chartMode" style="width:auto;">
+              <option value="bloc">Vue par bloc politique</option>
+              <option value="candidat">Vue par candidat sélectionné</option>
+            </select>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:0;" id="chartSubHint">Moyenne mensuelle, avec les mêmes filtres (candidats, instituts, mois, hypothèses) que le tableau ci-dessus.</p>
+        <canvas id="trendChart" height="366" style="display: block; box-sizing: border-box; height: 293px; width: 800px;" width="1000"></canvas>
+        <p class="hint" id="chartEmptyHint" style="display:none;">Pas assez de données pour tracer une évolution avec les filtres actuels.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>Tout le calcul se fait dans votre navigateur — aucune donnée n'est envoyée sur un serveur.</footer>
+</div>
+
+<script>
+const BLOC_CLASS = { "BLOC GAUCHE": "gauche", "CENTRE": "centre", "BLOC DROITE": "droite" };
+const BLOC_LABEL = { "BLOC GAUCHE": "Gauche", "CENTRE": "Centre", "BLOC DROITE": "Droite" };
+
+let dataset = null;
+
+const HIDDEN_CANDIDATES = ["Hamon", "Hidalgo", "Jadot", "Fillon", "Pécresse", "Cheminade"];
+
+let SUB_BLOC = {
+  "Mélenchon": "Gauche radicale",
+  "Poutou": "Gauche radicale",
+  "Arthaud": "Gauche radicale",
+  "Glucksmann": "Gauche classique",
+  "Roussel": "Gauche classique",
+  "Tondelier": "Gauche classique",
+  "Hollande": "Gauche classique",
+  "Faure": "Gauche classique",
+  "Ruffin": "Gauche classique",
+  "de Villepin": "Gauche classique",
+  "Attal": "Centre gauche",
+  "Philippe": "Centre droit",
+  "Le Maire": "Centre droit",
+  "Retailleau": "Droite classique",
+  "Lisnard": "Droite classique",
+  "Bertrand": "Droite classique",
+  "Le Pen": "Droite radicale",
+  "Zemmour": "Droite radicale",
+  "Knafo": "Droite radicale",
+  "Dupont-Aignan": "Droite radicale",
+  "Asselineau": "Droite radicale",
+  "Bardella": "Droite radicale",
+  "Lasalle": "Divers droite"
+};
+// Candidats volontairement laissés hors de cette liste :
+// ils apparaissent dans le groupe "Non classé" tant qu'ils n'ont pas été classés manuellement.
+const SUB_BLOC_ORDER = ["Gauche radicale", "Gauche classique", "Centre gauche", "Centre droit", "Droite classique", "Divers droite", "Droite radicale"];
+const SUB_BLOC_DISPLAY_ORDER = SUB_BLOC_ORDER.concat(["Non classé"]);
+const SUB_BLOC_COLOR = {
+  "Gauche radicale": "#a5231e",
+  "Gauche classique": "#e0473e",
+  "Centre gauche": "#c97b2e",
+  "Centre droit": "#e8a83c",
+  "Droite classique": "#5b8fe0",
+  "Divers droite": "#3a5fc7",
+  "Droite radicale": "#1c3f99",
+  "Non classé": "#8a8f99"
+};
+
+function subBlocOf(name, bloc) {
+  return SUB_BLOC[name] || null; // null => groupe "Non classé"
+}
+
+let ORIGINAL_CANDIDATE_NAMES;
+
+const LS_KEY = "simulateur_moyennes_manual_polls_v1";
+const LS_KEY_CANDIDATES = "simulateur_moyennes_manual_candidates_v1";
+const LS_KEY_SUBBLOC = "simulateur_moyennes_subbloc_overrides_v1";
+let manualPolls = [];
+let manualCandidates = [];
+let localStorageAvailable = true;
+
+function loadManualCandidates() {
+  try {
+    const raw = localStorage.getItem(LS_KEY_CANDIDATES);
+    if (raw) manualCandidates = JSON.parse(raw);
+  } catch (e) {
+    localStorageAvailable = false;
+    manualCandidates = [];
+  }
+  manualCandidates.forEach(c => {
+    if (!dataset.candidates.some(x => x.name === c.name)) dataset.candidates.push(c);
+  });
+}
+
+function saveManualCandidates() {
+  try { localStorage.setItem(LS_KEY_CANDIDATES, JSON.stringify(manualCandidates)); } catch (e) { localStorageAvailable = false; }
+}
+
+function loadSubBlocOverrides() {
+  try {
+    const raw = localStorage.getItem(LS_KEY_SUBBLOC);
+    if (raw) Object.assign(SUB_BLOC, JSON.parse(raw));
+  } catch (e) { /* ignore */ }
+}
+
+function saveSubBlocOverrides() {
+  try { localStorage.setItem(LS_KEY_SUBBLOC, JSON.stringify(SUB_BLOC)); } catch (e) { localStorageAvailable = false; }
+}
+
+function loadManualPolls() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) manualPolls = JSON.parse(raw);
+  } catch (e) {
+    localStorageAvailable = false;
+    manualPolls = [];
+  }
+  manualPolls.forEach(p => dataset.polls.push(p));
+}
+
+function saveManualPolls() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(manualPolls));
+  } catch (e) {
+    localStorageAvailable = false;
+  }
+}
+
+
+let REF_INDICATIVE, REF_2017, REF_2022;
+
+function refValue(refRow, name) {
+  if (!refRow) return null;
+  const v = refRow.scores[name];
+  return (v === null || v === undefined) ? null : v;
+}
+
+function refBlocSum(refRow, bloc) {
+  if (!refRow || !refRow.blocSums) return null;
+  const v = refRow.blocSums[bloc];
+  return (v === null || v === undefined) ? null : v;
+}
+
+const MONTH_NAMES = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+
+function parsePollDate(str) {
+  if (!str) return null;
+  const parts = str.split("/");
+  if (parts.length !== 3) return null;
+  let [m, d, y] = parts.map(Number);
+  if (isNaN(m) || isNaN(d) || isNaN(y)) return null;
+  if (y < 100) y += 2000;
+  return { year: y, month: m, day: d };
+}
+
+function pollDateObj(p) {
+  const dt = parsePollDate(p.date);
+  if (!dt) return null;
+  return new Date(dt.year, dt.month - 1, dt.day);
+}
+
+function monthKeyOf(p) {
+  const dt = parsePollDate(p.date);
+  if (!dt) return null;
+  return `${dt.year}-${String(dt.month).padStart(2, "0")}`;
+}
+
+function monthLabelOf(key) {
+  const [y, m] = key.split("-").map(Number);
+  return `${MONTH_NAMES[m - 1]} ${y}`;
+}
+
+function weekKeyOf(p) {
+  const d = pollDateObj(p);
+  if (!d) return null;
+  const dow = (d.getDay() + 6) % 7; // 0 = lundi
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - dow);
+  return `${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,"0")}-${String(monday.getDate()).padStart(2,"0")}`;
+}
+
+function weekLabelOf(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  const start = new Date(y, m - 1, d);
+  const end = new Date(start); end.setDate(start.getDate() + 6);
+  const fmt = x => `${String(x.getDate()).padStart(2,"0")}/${String(x.getMonth()+1).padStart(2,"0")}`;
+  return `Sem. du ${fmt(start)}`;
+}
+
+const ZOOM_DAYS = { "3m": 92, "1m": 31 };
+
+function applyZoom(polls) {
+  if (state.chartZoom === "all") return polls;
+  const dated = polls.map(p => ({ p, d: pollDateObj(p) })).filter(x => x.d);
+  if (!dated.length) return polls;
+  const maxTime = Math.max(...dated.map(x => x.d.getTime()));
+  const cutoff = new Date(maxTime);
+  cutoff.setDate(cutoff.getDate() - ZOOM_DAYS[state.chartZoom]);
+  return dated.filter(x => x.d.getTime() >= cutoff.getTime()).map(x => x.p);
+}
+
+function allMonthKeys() {
+  return [...new Set(dataset.polls.map(monthKeyOf).filter(Boolean))].sort();
+}
+
+let state;
+
+function groupCandidatesBySubBloc() {
+  const groups = {};
+  SUB_BLOC_DISPLAY_ORDER.forEach(sb => { groups[sb] = []; });
+  dataset.candidates.forEach(c => {
+    const sb = subBlocOf(c.name, c.bloc) || "Non classé";
+    if (!groups[sb]) groups[sb] = [];
+    groups[sb].push(c);
+  });
+  Object.keys(groups).forEach(k => { if (groups[k].length === 0) delete groups[k]; });
+  return groups;
+}
+
+function renderCandidateList() {
+  const container = document.getElementById("candidateList");
+  container.innerHTML = "";
+  const groups = groupCandidatesBySubBloc();
+  Object.entries(groups).forEach(([sb, cands]) => {
+    const color = SUB_BLOC_COLOR[sb] || "#999";
+    const header = document.createElement("div");
+    header.className = "bloc-header";
+    header.innerHTML = `<span><span class="bloc-dot" style="background:${color}"></span>${sb}</span>
+      <span><button class="mini-btn bloc-all" data-subbloc="${sb}">tous</button> · <button class="mini-btn bloc-none" data-subbloc="${sb}">aucun</button></span>`;
+    container.appendChild(header);
+    cands.forEach(c => {
+      const row = document.createElement("div");
+      row.className = "cand-row";
+      const checked = state.selectedCandidates.has(c.name) ? "checked" : "";
+      row.innerHTML = `<input type="checkbox" data-cand="${c.name}" ${checked}><label>${c.name}</label>`;
+      container.appendChild(row);
+    });
+  });
+
+  container.querySelectorAll('input[data-cand]').forEach(inp => {
+    inp.addEventListener("change", () => {
+      const name = inp.getAttribute("data-cand");
+      if (inp.checked) state.selectedCandidates.add(name); else state.selectedCandidates.delete(name);
+      render();
+    });
+  });
+  container.querySelectorAll(".bloc-all").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const sb = btn.getAttribute("data-subbloc");
+      dataset.candidates.filter(c => (subBlocOf(c.name, c.bloc) || "Non classé") === sb).forEach(c => state.selectedCandidates.add(c.name));
+      renderCandidateList(); render();
+    });
+  });
+  container.querySelectorAll(".bloc-none").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const sb = btn.getAttribute("data-subbloc");
+      dataset.candidates.filter(c => (subBlocOf(c.name, c.bloc) || "Non classé") === sb).forEach(c => state.selectedCandidates.delete(c.name));
+      renderCandidateList(); render();
+    });
+  });
+}
+
+function renderInstitutList() {
+  const container = document.getElementById("institutList");
+  container.innerHTML = "";
+  const instituts = [...new Set(dataset.polls.map(p => p.institut))].sort();
+  instituts.forEach(inst => {
+    const active = state.selectedInstituts.has(inst);
+    const chip = document.createElement("label");
+    chip.className = "chip" + (active ? " active" : "");
+    chip.innerHTML = `<input type="checkbox" ${active ? "checked" : ""}> ${inst}`;
+    chip.querySelector("input").addEventListener("change", (e) => {
+      if (e.target.checked) state.selectedInstituts.add(inst); else state.selectedInstituts.delete(inst);
+      chip.classList.toggle("active", e.target.checked);
+      render();
+    });
+    container.appendChild(chip);
+  });
+}
+
+function renderMonthList() {
+  const container = document.getElementById("monthList");
+  container.innerHTML = "";
+  allMonthKeys().forEach(key => {
+    const active = state.selectedMonths.has(key);
+    const chip = document.createElement("label");
+    chip.className = "chip" + (active ? " active" : "");
+    chip.innerHTML = `<input type="checkbox" ${active ? "checked" : ""}> ${monthLabelOf(key)}`;
+    chip.querySelector("input").addEventListener("change", (e) => {
+      if (e.target.checked) state.selectedMonths.add(key); else state.selectedMonths.delete(key);
+      chip.classList.toggle("active", e.target.checked);
+      render();
+    });
+    container.appendChild(chip);
+  });
+}
+
+function renderNewPollForm() {
+  const container = document.getElementById("newPollScores");
+  container.innerHTML = "";
+  const grid = document.createElement("div");
+  grid.className = "score-grid";
+  const groups = groupCandidatesBySubBloc();
+  Object.entries(groups).forEach(([sb, cands]) => {
+    const color = SUB_BLOC_COLOR[sb] || "#999";
+    const header = document.createElement("div");
+    header.className = "bloc-header";
+    header.innerHTML = `<span><span class="bloc-dot" style="background:${color}"></span>${sb}</span>`;
+    grid.appendChild(header);
+    cands.forEach(c => {
+      const row = document.createElement("div");
+      row.className = "score-row";
+      row.innerHTML = `<label>${c.name}</label><input type="number" step="0.1" min="0" max="100" data-newscore="${c.name}">`;
+      grid.appendChild(row);
+    });
+  });
+  container.appendChild(grid);
+  updateManualPollsCount();
+
+  const subBlocSel = document.getElementById("newCandidateSubBloc");
+  if (subBlocSel && subBlocSel.options.length <= 1) {
+    SUB_BLOC_ORDER.forEach(sb => {
+      const opt = document.createElement("option");
+      opt.value = sb; opt.textContent = sb;
+      subBlocSel.appendChild(opt);
+    });
+  }
+}
+
+function updateManualPollsCount() {
+  const el = document.getElementById("manualPollsCount");
+  if (!el) return;
+  el.textContent = `${manualPolls.length} sondage(s)` + (manualCandidates.length > 0 ? ` et ${manualCandidates.length} candidat(s)` : "") + " ajouté(s) manuellement" +
+    (localStorageAvailable ? ", sauvegardé(s) dans ce navigateur." : " (sauvegarde navigateur indisponible — pense à exporter).");
+}
+
+function candidateSignature(scores) {
+  return dataset.candidates
+    .filter(c => scores[c.name] !== null && scores[c.name] !== undefined)
+    .map(c => c.name)
+    .sort()
+    .join("|");
+}
+
+function findMatchingHypothesis(scores) {
+  const sig = candidateSignature(scores);
+  if (!sig) return null;
+  const match = dataset.polls.find(p => candidateSignature(p.scores) === sig);
+  return match ? match.hypothese : null;
+}
+
+function nextHypothesisNumber() {
+  let max = 0;
+  dataset.polls.forEach(p => {
+    const m = p.hypothese.match(/Hypoth[eè]se\s*(?:unique\s*)?(\d+)/i);
+    if (m) { const n = parseInt(m[1], 10); if (n > max) max = n; }
+  });
+  return max + 1;
+}
+
+function generateHypothesisLabel(scores) {
+  const names = dataset.candidates
+    .filter(c => scores[c.name] !== null && scores[c.name] !== undefined)
+    .map(c => c.name);
+  return `Hypothèse ${nextHypothesisNumber()} : ${names.join(", ")}`;
+}
+
+function handleAddPoll() {
+  const statusEl = document.getElementById("addPollStatus");
+  const institut = document.getElementById("newPollInstitut").value.trim();
+  const dateVal = document.getElementById("newPollDate").value;
+  const manualHyp = document.getElementById("newPollHypothese").value.trim();
+
+  if (!institut || !dateVal) {
+    statusEl.className = "err";
+    statusEl.textContent = "Institut et date sont obligatoires.";
+    return;
+  }
+
+  // Nouveau candidat éventuel
+  const newCandName = document.getElementById("newCandidateName").value.trim();
+  const newCandBloc = document.getElementById("newCandidateBloc").value;
+  const newCandSubBloc = document.getElementById("newCandidateSubBloc").value;
+  const newCandScoreRaw = document.getElementById("newCandidateScore").value.trim();
+  let newCandidateObj = null;
+  let newCandidateScore = null;
+
+  if (newCandName) {
+    if (!newCandBloc || newCandScoreRaw === "") {
+      statusEl.className = "err";
+      statusEl.textContent = "Pour un nouveau candidat, précise son bloc politique et son score dans ce sondage.";
+      return;
+    }
+    if (dataset.candidates.some(c => c.name.toLowerCase() === newCandName.toLowerCase())) {
+      statusEl.className = "err";
+      statusEl.textContent = `${newCandName} existe déjà dans la liste des candidats.`;
+      return;
+    }
+    const score = parseFloat(newCandScoreRaw.replace(",", "."));
+    if (isNaN(score)) {
+      statusEl.className = "err";
+      statusEl.textContent = "Score du nouveau candidat invalide.";
+      return;
+    }
+    newCandidateObj = { name: newCandName, bloc: newCandBloc };
+    newCandidateScore = score;
+  }
+
+  const scores = {};
+  const blocSumsRaw = { "BLOC GAUCHE": 0, "CENTRE": 0, "BLOC DROITE": 0 };
+  const blocHas = { "BLOC GAUCHE": false, "CENTRE": false, "BLOC DROITE": false };
+  let anyScore = false;
+  dataset.candidates.forEach(c => {
+    const inp = document.querySelector(`input[data-newscore="${c.name.replace(/"/g, '\\"')}"]`);
+    const raw = inp ? inp.value.trim() : "";
+    if (raw === "") { scores[c.name] = null; return; }
+    const num = parseFloat(raw.replace(",", "."));
+    if (isNaN(num)) { scores[c.name] = null; return; }
+    scores[c.name] = num;
+    anyScore = true;
+    if (blocSumsRaw[c.bloc] !== undefined) { blocSumsRaw[c.bloc] += num; blocHas[c.bloc] = true; }
+  });
+
+  if (newCandidateObj) {
+    scores[newCandidateObj.name] = newCandidateScore;
+    anyScore = true;
+    if (blocSumsRaw[newCandidateObj.bloc] !== undefined) {
+      blocSumsRaw[newCandidateObj.bloc] += newCandidateScore;
+      blocHas[newCandidateObj.bloc] = true;
+    }
+  }
+
+  if (!anyScore) {
+    statusEl.className = "err";
+    statusEl.textContent = "Renseigne le score d'au moins un candidat.";
+    return;
+  }
+
+  let hyp, hypIsNew;
+  if (manualHyp) {
+    hyp = /^hypoth/i.test(manualHyp) ? manualHyp : "Hypothèse : " + manualHyp;
+    hypIsNew = !dataset.polls.some(p => p.hypothese === hyp);
+  } else {
+    const matched = findMatchingHypothesis(scores);
+    if (matched) {
+      hyp = matched;
+      hypIsNew = false;
+    } else {
+      hyp = generateHypothesisLabel(scores);
+      hypIsNew = true;
+    }
+  }
+
+  const [y, m, d] = dateVal.split("-");
+  const dateFormatted = `${parseInt(m, 10)}/${parseInt(d, 10)}/${y.slice(2)}`;
+  const blocSums = {};
+  Object.keys(blocSumsRaw).forEach(b => { if (blocHas[b]) blocSums[b] = Math.round(blocSumsRaw[b] * 100) / 100; });
+
+  const sampleRaw = document.getElementById("newPollSample").value.trim();
+  const registeredRaw = document.getElementById("newPollRegistered").value.trim();
+  const sample = sampleRaw === "" ? null : parseInt(sampleRaw, 10);
+  const registered = registeredRaw === "" ? null : parseInt(registeredRaw, 10);
+
+  // Enregistrer le nouveau candidat, s'il y en a un
+  if (newCandidateObj) {
+    dataset.candidates.push(newCandidateObj);
+    manualCandidates.push(newCandidateObj);
+    saveManualCandidates();
+    if (newCandSubBloc) {
+      SUB_BLOC[newCandidateObj.name] = newCandSubBloc;
+      saveSubBlocOverrides();
+    }
+    state.selectedCandidates.add(newCandidateObj.name);
+  }
+
+  const poll = { cle: "", hypothese: hyp, institut, date: dateFormatted, isReal: true, scores, blocSums, isManual: true, sample: isNaN(sample) ? null : sample, registered: isNaN(registered) ? null : registered };
+  dataset.polls.push(poll);
+  manualPolls.push(poll);
+  saveManualPolls();
+
+  state.selectedInstituts.add(institut);
+  const mKey = monthKeyOf(poll);
+  if (mKey) state.selectedMonths.add(mKey);
+
+  document.getElementById("newPollInstitut").value = "";
+  document.getElementById("newPollDate").value = "";
+  document.getElementById("newPollHypothese").value = "";
+  document.getElementById("newPollSample").value = "";
+  document.getElementById("newPollRegistered").value = "";
+  document.getElementById("newCandidateName").value = "";
+  document.getElementById("newCandidateBloc").value = "";
+  document.getElementById("newCandidateSubBloc").value = "";
+  document.getElementById("newCandidateScore").value = "";
+  renderCandidateList();
+  renderNewPollForm();
+  renderInstitutList();
+  renderMonthList();
+  render();
+  renderClassifyReminder();
+
+  statusEl.className = "ok";
+  statusEl.textContent = `Sondage ajouté sous « ${hyp} » ${hypIsNew ? "(nouvelle hypothèse)" : "(hypothèse existante reconnue)"} — ${manualPolls.length} au total en ajout manuel` +
+    (newCandidateObj ? `, nouveau candidat "${newCandidateObj.name}" créé.` : ".");
+}
+
+function clearManualPolls() {
+  if (manualPolls.length === 0 && manualCandidates.length === 0) return;
+  const n = manualPolls.length, nc = manualCandidates.length;
+  if (!confirm(`Supprimer les ${n} sondage(s) et ${nc} candidat(s) ajoutés manuellement ? Cette action est irréversible.`)) return;
+  dataset.polls = dataset.polls.filter(p => !p.isManual);
+  const manualNames = new Set(manualCandidates.map(c => c.name));
+  dataset.candidates = dataset.candidates.filter(c => !manualNames.has(c.name));
+  manualNames.forEach(name => { delete SUB_BLOC[name]; state.selectedCandidates.delete(name); });
+  manualPolls = [];
+  manualCandidates = [];
+  saveManualPolls();
+  saveManualCandidates();
+  saveSubBlocOverrides();
+  renderCandidateList();
+  renderInstitutList();
+  renderMonthList();
+  renderNewPollForm();
+  render();
+  renderClassifyReminder();
+}
+
+function getFilteredPolls() {
+  const search = state.hypSearch.trim().toLowerCase();
+  let pool = dataset.polls;
+  return pool.filter(p => {
+    if (p.institut && !state.selectedInstituts.has(p.institut) && dataset.polls.includes(p)) return false;
+    const mKey = monthKeyOf(p);
+    if (mKey && !state.selectedMonths.has(mKey)) return false;
+    if (search && !p.hypothese.toLowerCase().includes(search) && !p.institut.toLowerCase().includes(search)) return false;
+    if (state.excludeUnselected) {
+      for (const c of dataset.candidates) {
+        if (state.selectedCandidates.has(c.name)) continue;
+        const v = p.scores[c.name];
+        if (v !== null && v !== undefined) return false;
+      }
+    }
+    return true;
+  });
+}
+
+function computeResults() {
+  const polls = getFilteredPolls();
+  const results = [];
+  dataset.candidates.forEach(c => {
+    if (!state.selectedCandidates.has(c.name)) return;
+    const values = polls.map(p => p.scores[c.name]).filter(v => v !== null && v !== undefined);
+    if (values.length === 0) {
+      results.push({ name: c.name, bloc: c.bloc, n: 0, moyenne: null, min: null, max: null });
+      return;
+    }
+    const sum = values.reduce((a,b) => a+b, 0);
+    results.push({
+      name: c.name, bloc: c.bloc, n: values.length,
+      moyenne: sum / values.length,
+      min: Math.min(...values), max: Math.max(...values)
+    });
+  });
+  results.sort((a,b) => (b.moyenne ?? -1) - (a.moyenne ?? -1));
+  return { results, pollsUsed: polls.length, polls };
+}
+
+function computeBlocSummary(polls) {
+  const blocs = {};
+  ["BLOC GAUCHE", "CENTRE", "BLOC DROITE"].forEach(bloc => { blocs[bloc] = { sum: 0, count: 0 }; });
+  polls.forEach(p => {
+    Object.entries(p.blocSums || {}).forEach(([bloc, v]) => {
+      if (v === null || v === undefined) return;
+      if (!blocs[bloc]) blocs[bloc] = { sum: 0, count: 0 };
+      blocs[bloc].sum += v;
+      blocs[bloc].count += 1;
+    });
+  });
+  const out = {};
+  Object.entries(blocs).forEach(([bloc, v]) => {
+    if (v.count > 0) out[bloc] = { moyenne: v.sum / v.count, n: v.count };
+  });
+  return out;
+}
+
+function computeSubBlocSummary(polls) {
+  const groups = {};
+  polls.forEach(p => {
+    const bySub = {};
+    dataset.candidates.forEach(c => {
+      const v = p.scores[c.name];
+      if (v === null || v === undefined) return;
+      const sb = subBlocOf(c.name, c.bloc) || "Non classé";
+      bySub[sb] = (bySub[sb] || 0) + v;
+    });
+    Object.entries(bySub).forEach(([sb, sum]) => {
+      if (!groups[sb]) groups[sb] = { sum: 0, count: 0 };
+      groups[sb].sum += sum;
+      groups[sb].count += 1;
+    });
+  });
+  const out = {};
+  SUB_BLOC_DISPLAY_ORDER.forEach(sb => {
+    if (groups[sb] && groups[sb].count > 0) out[sb] = { moyenne: groups[sb].sum / groups[sb].count, n: groups[sb].count };
+  });
+  return out;
+}
+
+let lastResults = [];
+let trendChartInstance = null;
+
+const BLOC_HEX = { "BLOC GAUCHE": "#e0473e", "CENTRE": "#e8a83c", "BLOC DROITE": "#2b6fe0" };
+
+function colorForCandidate(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  const hue = hash % 360;
+  return `hsl(${hue}, 65%, 45%)`;
+}
+
+function buildTimeSeries(polls) {
+  const zoomed = applyZoom(polls);
+  const useWeekly = state.chartZoom !== "all";
+  const keyFn = useWeekly ? weekKeyOf : monthKeyOf;
+  const labelFn = useWeekly ? weekLabelOf : monthLabelOf;
+  const buckets = [...new Set(zoomed.map(keyFn).filter(Boolean))].sort();
+  const labels = buckets.map(labelFn);
+
+  if (state.chartMode === "bloc") {
+    const series = ["BLOC GAUCHE", "CENTRE", "BLOC DROITE"].map(bloc => ({
+      label: BLOC_LABEL[bloc], color: BLOC_HEX[bloc],
+      data: buckets.map(bKey => {
+        const inBucket = zoomed.filter(p => keyFn(p) === bKey);
+        const vals = inBucket.map(p => p.blocSums && p.blocSums[bloc]).filter(v => v !== null && v !== undefined);
+        return vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : null;
+      })
+    }));
+    return { buckets, labels, series };
+  }
+  const candidates = dataset.candidates.filter(c => state.selectedCandidates.has(c.name));
+  const series = candidates.map(c => ({
+    label: c.name, color: colorForCandidate(c.name),
+    data: buckets.map(bKey => {
+      const inBucket = zoomed.filter(p => keyFn(p) === bKey);
+      const vals = inBucket.map(p => p.scores[c.name]).filter(v => v !== null && v !== undefined);
+      return vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : null;
+    })
+  })).filter(s => s.data.some(v => v !== null));
+  return { buckets, labels, series };
+}
+
+function renderChart(polls) {
+  const canvas = document.getElementById("trendChart");
+  const emptyHint = document.getElementById("chartEmptyHint");
+
+  if (typeof Chart === "undefined") {
+    canvas.style.display = "none";
+    emptyHint.style.display = "block";
+    emptyHint.textContent = "La librairie de graphique n'a pas pu se charger (connexion internet nécessaire au premier chargement de la page). Rechargez la page une fois connecté.";
+    return;
+  }
+
+  const { buckets, labels, series } = buildTimeSeries(polls);
+
+  if (buckets.length < 2 || series.length === 0) {
+    canvas.style.display = "none";
+    emptyHint.style.display = "block";
+    emptyHint.textContent = "Pas assez de données pour tracer une évolution avec les filtres actuels" + (state.chartZoom !== "all" ? " sur cette période — essayez « Tout l'historique »." : ".");
+    if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+    return;
+  }
+  canvas.style.display = "block";
+  emptyHint.style.display = "none";
+
+  const subHint = document.getElementById("chartSubHint");
+  subHint.textContent = state.chartZoom === "all"
+    ? "Moyenne mensuelle, avec les mêmes filtres (candidats, instituts, mois, hypothèses) que le tableau ci-dessus."
+    : `Moyenne hebdomadaire sur ${state.chartZoom === "1m" ? "le dernier mois" : "les 3 derniers mois"}, avec les mêmes filtres que le tableau ci-dessus.`;
+
+  const datasets = series.map(s => ({
+    label: s.label,
+    data: s.data,
+    borderColor: s.color,
+    backgroundColor: s.color,
+    spanGaps: true,
+    tension: 0.25,
+    pointRadius: 3,
+  }));
+
+  try {
+    if (trendChartInstance) {
+      trendChartInstance.data.labels = labels;
+      trendChartInstance.data.datasets = datasets;
+      trendChartInstance.update();
+    } else {
+      trendChartInstance = new Chart(canvas.getContext("2d"), {
+        type: "line",
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          interaction: { mode: "index", intersect: false },
+          plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } },
+          scales: { y: { title: { display: true, text: "%" }, ticks: { callback: v => v + "%" } } }
+        }
+      });
+    }
+  } catch (err) {
+    canvas.style.display = "none";
+    emptyHint.style.display = "block";
+    emptyHint.textContent = "Erreur lors de l'affichage du graphique : " + err.message;
+  }
+}
+
+function getBaselinePolls() {
+  const search = state.hypSearch.trim().toLowerCase();
+  return dataset.polls.filter(p => {
+    if (p.institut && !state.selectedInstituts.has(p.institut)) return false;
+    const mKey = monthKeyOf(p);
+    if (mKey && !state.selectedMonths.has(mKey)) return false;
+    if (search && !p.hypothese.toLowerCase().includes(search) && !p.institut.toLowerCase().includes(search)) return false;
+    return true;
+  });
+}
+
+function computeBaselineAverages() {
+  const polls = getBaselinePolls();
+  const out = {};
+  dataset.candidates.forEach(c => {
+    const values = polls.map(p => p.scores[c.name]).filter(v => v !== null && v !== undefined);
+    out[c.name] = values.length ? values.reduce((a,b)=>a+b,0) / values.length : null;
+  });
+  return out;
+}
+
+function renderRemovalAnalysis(results) {
+  const unchecked = dataset.candidates.filter(c => !state.selectedCandidates.has(c.name));
+  if (unchecked.length === 0) {
+    return '<p class="hint" style="margin-top:0;">Tous les candidats sont actuellement inclus — décochez-en un pour voir qui bénéficie de son retrait.</p>';
+  }
+  if (!state.excludeUnselected) {
+    return '<p class="hint" style="margin-top:0;">Active l\'option « Ne garder que les sondages où les candidats décochés sont absents » (carte Hypothèses) pour voir l\'effet réel de ce retrait.</p>';
+  }
+  const baseline = computeBaselineAverages();
+  const deltas = results
+    .filter(r => r.moyenne !== null && baseline[r.name] !== null && baseline[r.name] !== undefined)
+    .map(r => ({ name: r.name, delta: r.moyenne - baseline[r.name], before: baseline[r.name], after: r.moyenne }))
+    .sort((a, b) => b.delta - a.delta);
+  if (deltas.length === 0) {
+    return '<p class="hint" style="margin-top:0;">Pas assez de données communes pour comparer avec les filtres actuels.</p>';
+  }
+  const rows = deltas.map(d => {
+    const sign = d.delta > 0.05 ? "gain" : d.delta < -0.05 ? "loss" : "neutral";
+    const arrow = sign === "gain" ? "▲" : sign === "loss" ? "▼" : "•";
+    return `<div class="analysis-row analysis-${sign}">
+      <span class="analysis-name">${d.name}</span>
+      <span class="analysis-delta">${arrow} ${d.delta >= 0 ? "+" : ""}${d.delta.toFixed(2)} pt</span>
+      <span class="analysis-detail">${d.before.toFixed(1)}% → ${d.after.toFixed(1)}%</span>
+    </div>`;
+  }).join("");
+  return `<p class="hint" style="margin-top:0;">Retrait de <strong>${unchecked.map(c => c.name).join(", ")}</strong> — effet sur les moyennes des autres, comparé à un scénario où tout le monde se présente (même instituts/mois/hypothèses) :</p>
+    <div class="analysis-list">${rows}</div>`;
+}
+
+const GAUCHE_NOTABLE = ["Glucksmann", "Hollande", "Faure", "de Villepin", "Ruffin"];
+const CENTRE_NOTABLE = ["Attal", "Philippe", "Le Maire"];
+
+function gaucheConfigOf(poll) {
+  const present = GAUCHE_NOTABLE.filter(n => poll.scores[n] !== null && poll.scores[n] !== undefined);
+  if (present.length === 0) return null;
+  if (present.length === 1) return { key: "g-unique-" + present[0], label: `Candidat unique à gauche : ${present[0]}` };
+  return { key: "g-dispersion", label: `Gauche dispersée (${present.join(" + ")})` };
+}
+
+function centreConfigOf(poll) {
+  const present = CENTRE_NOTABLE.filter(n => poll.scores[n] !== null && poll.scores[n] !== undefined);
+  if (present.length === 0) return null;
+  if (present.length === 1) return { key: "c-unique-" + present[0], label: `Centre porté par ${present[0]}` };
+  return { key: "c-dispersion", label: `Centre dispersé (${present.join(" + ")})` };
+}
+
+function statsByConfig(polls, candidateName, keyFn) {
+  const byKey = {};
+  polls.forEach(p => {
+    const v = p.scores[candidateName];
+    if (v === null || v === undefined) return;
+    const g = keyFn(p);
+    if (!g) return;
+    if (!byKey[g.key]) byKey[g.key] = { label: g.label, vals: [] };
+    byKey[g.key].vals.push(v);
+  });
+  return Object.values(byKey)
+    .map(g => ({ label: g.label, n: g.vals.length, avg: g.vals.reduce((a, b) => a + b, 0) / g.vals.length }))
+    .sort((a, b) => b.avg - a.avg);
+}
+
+function renderConfigBlock(title, polls, candidateName, keyFn) {
+  const stats = statsByConfig(polls, candidateName, keyFn);
+  if (stats.length < 2) {
+    return `<div class="single-analysis"><p class="hint" style="margin-top:0;"><strong>${title}</strong> — pas assez de configurations différentes testées pour comparer.</p></div>`;
+  }
+  const best = stats[0], worst = stats[stats.length - 1];
+  const rows = stats.map(s => `<div class="analysis-row"><span class="analysis-name">${s.label}</span><span class="analysis-detail">${s.avg.toFixed(2)}% (${s.n} sondage${s.n > 1 ? "s" : ""})</span></div>`).join("");
+  return `
+    <div class="single-analysis">
+      <p class="hint" style="margin-top:0;"><strong>${title}</strong></p>
+      <div class="analysis-row analysis-gain"><span class="analysis-name">✓ Meilleure configuration</span><span class="analysis-delta">${best.label} — ${best.avg.toFixed(2)}%</span></div>
+      <div class="analysis-row analysis-loss"><span class="analysis-name">✗ Pire configuration</span><span class="analysis-delta">${worst.label} — ${worst.avg.toFixed(2)}%</span></div>
+      <details style="margin-top:8px;"><summary class="hint" style="cursor:pointer;">Voir toutes les configurations testées (${stats.length})</summary>${rows}</details>
+    </div>`;
+}
+
+function renderSingleCandidateAnalysis(polls) {
+  if (state.selectedCandidates.size !== 1) return "";
+  const name = [...state.selectedCandidates][0];
+  const cand = dataset.candidates.find(c => c.name === name);
+  if (!cand) return "";
+
+  if (cand.bloc === "BLOC GAUCHE") {
+    return renderConfigBlock(`${name} — meilleure/pire configuration selon le centre`, polls, name, centreConfigOf);
+  }
+  if (cand.bloc === "CENTRE") {
+    return renderConfigBlock(`${name} — meilleure/pire configuration selon la gauche`, polls, name, gaucheConfigOf);
+  }
+  // Droite (et autres) : les deux comparaisons
+  return renderConfigBlock(`${name} — meilleure/pire configuration selon la gauche`, polls, name, gaucheConfigOf)
+       + renderConfigBlock(`${name} — meilleure/pire configuration selon le centre`, polls, name, centreConfigOf);
+}
+
+function renderClassifyReminder() {
+  const banner = document.getElementById("classifyReminder");
+  const unclassified = dataset.candidates.filter(c => !SUB_BLOC[c.name]);
+  if (unclassified.length === 0) {
+    banner.style.display = "none";
+    banner.innerHTML = "";
+    return;
+  }
+  const rows = unclassified.map(c => {
+    const options = SUB_BLOC_ORDER.map(sb => `<option value="${sb}">${sb}</option>`).join("");
+    return `<div class="classify-row">
+      <strong>${c.name}</strong> <span class="hint">(${BLOC_LABEL[c.bloc] || c.bloc})</span>
+      <select data-classify="${c.name}">
+        <option value="">— Non classé —</option>
+        ${options}
+      </select>
+    </div>`;
+  }).join("");
+  banner.innerHTML = `
+    <h3>⚠️ Candidat(s) non classé(s) politiquement</h3>
+    <p class="hint" style="margin:0 0 8px;">Classe-les pour que le résumé "par tendance politique" (Gauche radicale/classique, Centre gauche/droit, Droite classique/radicale) les prenne en compte — sinon ils restent dans le groupe "Non classé", visible dans la liste des candidats et dans ce résumé. Le choix est sauvegardé dans ce navigateur.</p>
+    ${rows}`;
+  banner.style.display = "block";
+  banner.querySelectorAll("select[data-classify]").forEach(sel => {
+    sel.addEventListener("change", (e) => {
+      const name = sel.getAttribute("data-classify");
+      if (e.target.value) SUB_BLOC[name] = e.target.value; else delete SUB_BLOC[name];
+      saveSubBlocOverrides();
+      renderCandidateList();
+      renderNewPollForm();
+      render();
+    });
+  });
+}
+
+function computeSampleStats(polls) {
+  const waves = new Map();
+  polls.forEach(p => {
+    if (p.sample === null || p.sample === undefined) return;
+    const key = p.institut + "|" + p.date;
+    if (!waves.has(key)) waves.set(key, { sample: p.sample, registered: p.registered });
+  });
+  let totalSample = 0, totalRegistered = 0, hasRegistered = 0, nWaves = 0;
+  waves.forEach(v => {
+    totalSample += v.sample || 0;
+    if (v.registered !== null && v.registered !== undefined) { totalRegistered += v.registered; hasRegistered++; }
+    nWaves++;
+  });
+  return { totalSample, totalRegistered, nWaves, hasRegistered };
+}
+
+function updateLatestPollBadge() {
+  const el = document.getElementById("latestPollBadge");
+  if (!el) return;
+  let latest = null, latestDate = null;
+  dataset.polls.forEach(p => {
+    const d = pollDateObj(p);
+    if (!d) return;
+    if (!latestDate || d.getTime() > latestDate.getTime()) { latestDate = d; latest = p; }
+  });
+  if (!latest) { el.style.display = "none"; return; }
+  const day = latestDate.getDate();
+  const monthName = MONTH_NAMES[latestDate.getMonth()].toLowerCase();
+  const year = latestDate.getFullYear();
+  el.innerHTML = `📊 Dernier sondage intégré : <strong>${latest.institut} du ${day} ${monthName} ${year}</strong>`;
+  el.style.display = "inline-flex";
+}
+
+function render() {
+  updateLatestPollBadge();
+  const { results, pollsUsed, polls } = computeResults();
+  lastResults = results;
+  const maxMoy = Math.max(...results.map(r => r.moyenne || 0), 1);
+
+  const totalStats = computeSampleStats(dataset.polls);
+  document.getElementById("subtitleText").textContent =
+    `Décochez des candidats, filtrez par institut, par mois ou par hypothèse : les moyennes se recalculent instantanément. ${dataset.polls.length} sondage(s) et ${dataset.candidates.length} candidat(s) testé(s) au total` +
+    (totalStats.nWaves > 0
+      ? ` — ${totalStats.nWaves} vague(s) de terrain représentant ${totalStats.totalSample.toLocaleString("fr-FR")} personne(s) interrogée(s)${totalStats.hasRegistered > 0 ? `, dont ${totalStats.totalRegistered.toLocaleString("fr-FR")} inscrite(s) sur les listes électorales` : ""}.`
+      : ".");
+
+  const tbody = document.getElementById("resultsBody");
+  tbody.innerHTML = "";
+  let qualifiedCount = 0;
+  results.forEach(r => {
+    const cls = BLOC_CLASS[r.bloc] || "";
+    const tagLabel = BLOC_LABEL[r.bloc] || r.bloc || "—";
+    const tr = document.createElement("tr");
+    const isQualified = r.moyenne !== null && qualifiedCount < 2;
+    if (isQualified) { qualifiedCount++; tr.className = "row-qualified"; }
+    if (r.moyenne === null) {
+      tr.innerHTML = `<td><strong>${r.name}</strong></td><td><span class="bloc-tag tag-${cls}">${tagLabel}</span></td><td colspan="7" style="color:#999;">Aucune donnée pour les filtres actuels</td>`;
+    } else {
+      const fmtRef = v => v === null ? '<span class="ref-empty">—</span>' : `${v.toFixed(2)}%`;
+      tr.innerHTML = `
+        <td><strong>${r.name}</strong></td>
+        <td><span class="bloc-tag tag-${cls}">${tagLabel}</span></td>
+        <td><span class="badge">${r.n}</span></td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-bg"><div class="bar-fill" style="width:${(r.moyenne/maxMoy*100).toFixed(1)}%; background:${cls === 'gauche' ? 'var(--gauche)' : cls === 'centre' ? 'var(--centre)' : cls === 'droite' ? 'var(--droite)' : 'var(--accent)'}"></div></div>
+            <span class="moyenne-value">${r.moyenne.toFixed(2)}%</span>
+          </div>
+        </td>
+        <td>${r.min.toFixed(2)}%</td>
+        <td>${r.max.toFixed(2)}%</td>
+        <td class="ref-cell">${fmtRef(refValue(REF_INDICATIVE, r.name))}</td>
+        <td class="ref-cell">${fmtRef(refValue(REF_2017, r.name))}</td>
+        <td class="ref-cell">${fmtRef(refValue(REF_2022, r.name))}</td>
+      `;
+    }
+    tbody.appendChild(tr);
+  });
+
+  const filteredStats = computeSampleStats(polls);
+  document.getElementById("pollCountHint").textContent =
+    `${pollsUsed} sondage(s) pris en compte avec les filtres actuels sur ${dataset.polls.length} disponible(s) · ${state.selectedCandidates.size} candidat(s) affiché(s) sur ${dataset.candidates.length} au total` +
+    (filteredStats.nWaves > 0 ? ` · ${filteredStats.totalSample.toLocaleString("fr-FR")} personne(s) interrogée(s) sur ${filteredStats.nWaves} vague(s) de terrain.` : ".");
+
+  const blocContainer = document.getElementById("blocSummary");
+  blocContainer.innerHTML = "";
+
+  if (state.subdivideBloc) {
+    const subSummary = computeSubBlocSummary(polls);
+    Object.entries(subSummary).forEach(([sb, v]) => {
+      const box = document.createElement("div");
+      box.className = "summary-box";
+      box.style.borderLeftColor = SUB_BLOC_COLOR[sb] || "#ccc";
+      box.innerHTML = `
+        <div class="val" style="color:${SUB_BLOC_COLOR[sb] || 'inherit'}">${(v.moyenne).toFixed(1)}%</div>
+        <div class="lbl">${sb} — moyenne sur ${v.n} sondage${v.n>1?"s":""}</div>`;
+      blocContainer.appendChild(box);
+    });
+    if (Object.keys(subSummary).length === 0) {
+      blocContainer.innerHTML = '<p class="hint">Aucun sondage ne correspond aux filtres actuels.</p>';
+    }
+  } else {
+    const blocSummary = computeBlocSummary(polls);
+    Object.entries(blocSummary).forEach(([bloc, v]) => {
+      const label = BLOC_LABEL[bloc] || bloc;
+      const box = document.createElement("div");
+      box.className = "summary-box bloc-" + (BLOC_CLASS[bloc] || "");
+      const fmtRef = x => x === null ? "—" : x.toFixed(1) + "%";
+      box.innerHTML = `
+        <div class="val">${(v.moyenne).toFixed(1)}%</div>
+        <div class="lbl">${label} — moyenne sur ${v.n} sondage${v.n>1?"s":""}</div>
+        <div class="ref-line">
+          <span>Moy. indic. : ${fmtRef(refBlocSum(REF_INDICATIVE, bloc))}</span>
+          <span>1er tour 2017 : ${fmtRef(refBlocSum(REF_2017, bloc))}</span>
+          <span>1er tour 2022 : ${fmtRef(refBlocSum(REF_2022, bloc))}</span>
+        </div>`;
+      blocContainer.appendChild(box);
+    });
+    if (Object.keys(blocSummary).length === 0) {
+      blocContainer.innerHTML = '<p class="hint">Aucun sondage ne correspond aux filtres actuels.</p>';
+    }
+  }
+
+  document.getElementById("analysisBlock").innerHTML =
+    renderRemovalAnalysis(results) + renderSingleCandidateAnalysis(getBaselinePolls());
+
+  renderChart(polls);
+}
+
+document.getElementById("selAll").addEventListener("click", () => {
+  dataset.candidates.forEach(c => state.selectedCandidates.add(c.name));
+  renderCandidateList(); render();
+});
+document.getElementById("selNone").addEventListener("click", () => {
+  state.selectedCandidates.clear();
+  renderCandidateList(); render();
+});
+document.getElementById("monthAll").addEventListener("click", () => {
+  state.selectedMonths = new Set(allMonthKeys());
+  renderMonthList(); render();
+});
+document.getElementById("monthNone").addEventListener("click", () => {
+  state.selectedMonths.clear();
+  renderMonthList(); render();
+});
+document.getElementById("hypSearch").addEventListener("input", (e) => {
+  state.hypSearch = e.target.value;
+  render();
+});
+document.getElementById("excludeUnselected").addEventListener("change", (e) => {
+  state.excludeUnselected = e.target.checked;
+  render();
+});
+document.getElementById("chartMode").addEventListener("change", (e) => {
+  state.chartMode = e.target.value;
+  render();
+});
+document.getElementById("chartZoom").addEventListener("change", (e) => {
+  state.chartZoom = e.target.value;
+  render();
+});
+document.getElementById("subdivideBloc").addEventListener("change", (e) => {
+  state.subdivideBloc = e.target.checked;
+  render();
+});
+
+document.getElementById("exportBtn").addEventListener("click", () => {
+  if (!lastResults.length) return;
+  let csv = "Candidat;Bloc;Sondages;Moyenne;Min;Max\n";
+  lastResults.forEach(r => {
+    if (r.moyenne === null) { csv += `${r.name};${r.bloc};0;;;\n`; return; }
+    csv += `${r.name};${r.bloc};${r.n};${r.moyenne.toFixed(2)};${r.min.toFixed(2)};${r.max.toFixed(2)}\n`;
+  });
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "moyennes-candidats.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function exportUpdatedXlsx() {
+  try {
+    const candCols = dataset.candidates;
+    const blockRow = ["Clé", "Hypothèse", "Institut", "Date du sondage", "", ""];
+    let prevBloc = "";
+    candCols.forEach(c => {
+      blockRow.push(c.bloc !== prevBloc ? c.bloc : "");
+      prevBloc = c.bloc;
+    });
+    blockRow.push("", "", "", "");
+
+    const nameRow = ["", "Nom des candidats", "", "", "Échantillon", "Inscrits", ...candCols.map(c => c.name), "∑ Gauche", "∑ Centre", "∑ Droite", "Total"];
+
+    const rows = [blockRow, nameRow];
+    const dataStartRow = rows.length;
+    dataset.polls.forEach(p => {
+      const row = [p.cle || "", p.hypothese, p.institut, p.date, p.sample ?? "", p.registered ?? ""];
+      candCols.forEach(c => {
+        const v = p.scores[c.name];
+        row.push(v === null || v === undefined ? "" : v / 100);
+      });
+      const bs = p.blocSums || {};
+      const g = bs["BLOC GAUCHE"], ce = bs["CENTRE"], dr = bs["BLOC DROITE"];
+      row.push(g != null ? g / 100 : "");
+      row.push(ce != null ? ce / 100 : "");
+      row.push(dr != null ? dr / 100 : "");
+      const total = (g || 0) + (ce || 0) + (dr || 0);
+      row.push(total ? total / 100 : "");
+      rows.push(row);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const scoreColStart = 6;
+    const numScoreCols = candCols.length + 4;
+    for (let r = dataStartRow; r < rows.length; r++) {
+      for (let c = scoreColStart; c < scoreColStart + numScoreCols; c++) {
+        const ref = XLSX.utils.encode_cell({ r, c });
+        if (ws[ref] && typeof ws[ref].v === "number") ws[ref].z = "0.00%";
+      }
+    }
+    ws["!cols"] = [{ wch: 8 }, { wch: 45 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }]
+      .concat(candCols.map(() => ({ wch: 11 })))
+      .concat([{ wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 8 }]);
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Détail par institut");
+    XLSX.writeFile(wb, `sondages-presidentielle-${todayStr()}.xlsx`);
+  } catch (err) {
+    alert("Erreur lors de l'export Excel : " + err.message);
+  }
+}
+
+function exportUpdatedData() {
+  try {
+    const blob = new Blob([JSON.stringify(dataset, null, 1)], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "data.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert("Erreur lors de l'export : " + err.message);
+  }
+}
+
+document.getElementById("addPollBtn").addEventListener("click", handleAddPoll);
+document.getElementById("clearManualPolls").addEventListener("click", clearManualPolls);
+document.getElementById("exportXlsxBtn").addEventListener("click", exportUpdatedXlsx);
+document.getElementById("exportHtmlBtn").addEventListener("click", exportUpdatedData);
+
+function parseWorkbookToDataset(wb) {
+  const sheetName = wb.SheetNames.find(n => /d[ée]tail/i.test(n)) || wb.SheetNames[0];
+  const sheet = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
+
+  let blockRowIdx = -1, nameRowIdx = -1;
+  for (let i = 0; i < rows.length - 1; i++) {
+    if (rows[i][0] === "Clé" || (rows[i][1] || "").toString().trim() === "Hypothèse") {
+      blockRowIdx = i;
+      nameRowIdx = i + 1;
+      break;
+    }
+  }
+  if (blockRowIdx === -1) throw new Error("Structure non reconnue (en-têtes 'Clé' / 'Hypothèse' introuvables).");
+
+  const blockRow = rows[blockRowIdx];
+  const nameRow = rows[nameRowIdx];
+  const blockForCol = [];
+  let currentBlock = "";
+  for (let i = 0; i < blockRow.length; i++) {
+    if (blockRow[i] && blockRow[i] !== "") currentBlock = blockRow[i];
+    blockForCol[i] = currentBlock;
+  }
+
+  const hasSampleCols = /^[ée]chantillon/i.test((nameRow[4] || "").toString().trim());
+  const candStart = hasSampleCols ? 6 : 4;
+
+  const candCols = [];
+  const sumCols = {};
+  for (let i = candStart; i < nameRow.length; i++) {
+    const n = (nameRow[i] || "").toString().trim();
+    if (!n) continue;
+    if (n.startsWith("∑")) { sumCols[n] = i; continue; }
+    if (n === "Total") break;
+    candCols.push({ idx: i, name: n, bloc: (blockForCol[i]||"").toString().trim() });
+  }
+  const SUM_BLOC_MAP = { "∑ Gauche": "BLOC GAUCHE", "∑ Centre": "CENTRE", "∑ Droite": "BLOC DROITE" };
+
+  function parseNumCell(v) {
+    if (v === "" || v === undefined || v === null) return null;
+    v = v.toString().replace("%", "").replace(",", ".").trim();
+    const num = parseFloat(v);
+    return isNaN(num) ? null : num;
+  }
+
+  const polls = [];
+  const refPolls = [];
+  for (let r = nameRowIdx + 1; r < rows.length; r++) {
+    const row = rows[r];
+    const institut = (row[2] || "").toString().trim();
+    const hypothese = (row[1] || "").toString().trim();
+    if (!institut && !hypothese) continue;
+    const scores = {};
+    candCols.forEach(c => {
+      let v = row[c.idx];
+      if (v === "" || v === undefined || v === null) { scores[c.name] = null; return; }
+      v = v.toString().replace("%","").replace(",",".").trim();
+      const num = parseFloat(v);
+      scores[c.name] = isNaN(num) ? null : num;
+    });
+    const blocSums = {};
+    Object.entries(sumCols).forEach(([label, idx]) => {
+      const blocKey = SUM_BLOC_MAP[label];
+      if (!blocKey) return;
+      let v = row[idx];
+      if (v === "" || v === undefined || v === null) { blocSums[blocKey] = null; return; }
+      v = v.toString().replace("%","").replace(",",".").trim();
+      const num = parseFloat(v);
+      blocSums[blocKey] = isNaN(num) ? null : num;
+    });
+    const sample = hasSampleCols ? parseNumCell(row[4]) : null;
+    const registered = hasSampleCols ? parseNumCell(row[5]) : null;
+    const entry = { cle: (row[0]||"").toString().trim(), hypothese, institut, date: (row[3]||"").toString().trim(), scores, blocSums, sample, registered };
+    if (/^Hypoth/i.test(hypothese)) polls.push(entry); else refPolls.push(entry);
+  }
+
+  const filteredCandidates = candCols.map(c => ({ name: c.name, bloc: c.bloc })).filter(c => !HIDDEN_CANDIDATES.includes(c.name));
+  return { candidates: filteredCandidates, polls, referenceRows: refPolls };
+}
+
+document.getElementById("fileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById("fileStatus");
+  statusEl.className = ""; statusEl.textContent = "Lecture en cours...";
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const wb = XLSX.read(data, { type: "array", cellDates: true });
+      const newDataset = parseWorkbookToDataset(wb);
+      if (!newDataset.polls.length) throw new Error("Aucun sondage détecté dans ce fichier.");
+      newDataset.polls.push(...manualPolls);
+      manualCandidates.forEach(c => {
+        if (!newDataset.candidates.some(x => x.name === c.name)) newDataset.candidates.push(c);
+      });
+      dataset = newDataset;
+      state.selectedCandidates = new Set(dataset.candidates.map(c => c.name));
+      state.selectedInstituts = new Set(dataset.polls.map(p => p.institut));
+      state.selectedMonths = new Set(allMonthKeys());
+      state.hypSearch = ""; document.getElementById("hypSearch").value = "";
+      renderCandidateList(); renderInstitutList(); renderMonthList(); renderNewPollForm(); render();
+      renderClassifyReminder();
+      statusEl.className = "ok";
+      statusEl.textContent = `Chargé : ${dataset.polls.length} sondage(s), ${dataset.candidates.length} candidat(s).`;
+    } catch (err) {
+      statusEl.className = "err";
+      statusEl.textContent = "Erreur : " + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+async function init() {
+  try {
+    const resp = await fetch('./data.json');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    dataset = await resp.json();
+  } catch (err) {
+    document.body.innerHTML =
+      '<div style="padding:40px;font-family:system-ui,sans-serif;max-width:600px;margin:60px auto;text-align:center;">' +
+      '<h2>Impossible de charger les données</h2>' +
+      '<p>Le fichier <code>data.json</code> n\'a pas pu être récupéré (' + err.message + ').</p>' +
+      '<p>Vérifie qu\'il est bien placé à côté de <code>index.html</code>, et que la page est servie via http(s) ' +
+      '(GitHub Pages, un serveur local...) plutôt qu\'ouverte directement en double-cliquant sur le fichier.</p>' +
+      '</div>';
+    return;
+  }
+
+  dataset.candidates = dataset.candidates.filter(c => !HIDDEN_CANDIDATES.includes(c.name));
+  ORIGINAL_CANDIDATE_NAMES = new Set(dataset.candidates.map(c => c.name));
+  loadSubBlocOverrides();
+loadManualCandidates();
+loadManualPolls();
+  REF_INDICATIVE = dataset.referenceRows.find(r => /moyenne indicative/i.test(r.hypothese)) || null;
+REF_2017 = dataset.referenceRows.find(r => /2017/.test(r.hypothese)) || null;
+REF_2022 = dataset.referenceRows.find(r => /2022/.test(r.hypothese)) || null;
+
+  state = {
+  selectedCandidates: new Set(dataset.candidates.map(c => c.name)),
+  selectedInstituts: new Set([...new Set(dataset.polls.map(p => p.institut))]),
+  selectedMonths: new Set(allMonthKeys()),
+  hypSearch: "",
+  excludeUnselected: true,
+  chartMode: "bloc",
+  chartZoom: "all",
+  subdivideBloc: false
+};
+
+  renderCandidateList();
+renderInstitutList();
+renderMonthList();
+renderNewPollForm();
+render();
+renderClassifyReminder();
+}
+
+init();
+</script>
+
+
+</body></html>
