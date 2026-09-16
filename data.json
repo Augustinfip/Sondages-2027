@@ -4406,7 +4406,7 @@
     "Asselineau": null,
     "Poutou": null,
     "Faure": null,
-    "Le Pen": NaN,
+    "Le Pen": null,
     "Philippe": null,
     "Arthaud": null,
     "de Villepin": null,
@@ -4417,7 +4417,7 @@
     "Knafo": null,
     "Lisnard": null,
     "Hollande": null,
-    "Zemmour": NaN,
+    "Zemmour": null,
     "Attal": null,
     "Retailleau": null,
     "Bouamrane": null,
@@ -4428,7 +4428,7 @@
     "Bertrand": null
    },
    "blocSums": {
-    "BLOC DROITE": NaN
+    "BLOC DROITE": null
    },
    "sample": 13060,
    "registered": null,
