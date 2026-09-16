@@ -155,12 +155,15 @@ def fetch_wikipedia_table():
     haut de la section de sondages premier tour, donc le plus récent.
     Utilise pandas.read_html pour profiter de sa gestion des rowspan/colspan.
     """
+    import io
     import pandas as pd
 
     resp = requests.get(WIKI_URL, headers={"User-Agent": "poll-update-script/1.0"}, timeout=30)
     resp.raise_for_status()
 
-    tables = pd.read_html(resp.text, match="Polling firm")
+    # pandas récent exige un objet fichier-like (io.StringIO), pas une chaîne brute,
+    # sinon il tente d'interpréter le HTML comme un chemin de fichier.
+    tables = pd.read_html(io.StringIO(resp.text), match="Polling firm")
     if not tables:
         raise RuntimeError("Aucun tableau de sondages trouvé sur la page.")
     return tables[0]  # le premier = le plus récent
