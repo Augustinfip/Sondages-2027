@@ -228,6 +228,17 @@ def main():
         print(f"::warning::Échec de récupération de la page Wikipédia : {e}")
         sys.exit(0)  # on s'arrête proprement, sans modifier data.json
 
+    # --- Diagnostic temporaire : à retirer une fois le comportement confirmé fiable ---
+    print(f"[diag] Tableau trouvé : {len(df)} lignes.")
+    print(f"[diag] Colonnes : {list(df.columns)}")
+    if "Fieldwork date" in df.columns:
+        print(f"[diag] 5 premières dates de terrain brutes : {df['Fieldwork date'].head(5).tolist()}")
+        parsed = [parse_date_range(str(d)) for d in df["Fieldwork date"].head(5)]
+        print(f"[diag] 5 premières dates converties : {parsed}")
+    if "Polling firm" in df.columns:
+        print(f"[diag] 5 premiers instituts : {df['Polling firm'].head(5).tolist()}")
+    # --- Fin diagnostic ---
+
     header = list(df.columns)
     # Colonnes attendues : "Polling firm", "Fieldwork date", "Sample size", puis un candidat par colonne
     candidate_cols = [c for c in header if c not in ("Polling firm", "Fieldwork date", "Sample size")]
