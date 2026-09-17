@@ -263,6 +263,26 @@
         </div></div></div>
       </div>
 
+
+      <div class="card">
+        <div class="top-actions">
+          <h2 style="margin:0;">Évolution dans le temps</h2>
+          <div class="field" style="margin:0; width:auto; display:flex; gap:8px;">
+            <select id="chartZoom" style="width:auto;">
+              <option value="all">Tout l'historique</option>
+              <option value="3m">3 derniers mois</option>
+              <option value="1m">1 dernier mois</option>
+            </select>
+            <select id="chartMode" style="width:auto;">
+              <option value="bloc">Vue par bloc politique</option>
+              <option value="candidat">Vue par candidat sélectionné</option>
+            </select>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:0;" id="chartSubHint">Moyenne mensuelle, avec les mêmes filtres (candidats, instituts, mois, hypothèses) que le tableau ci-dessus.</p>
+        <canvas id="trendChart" height="366" style="display: block; box-sizing: border-box; height: 293px; width: 800px;" width="1000"></canvas>
+        <p class="hint" id="chartEmptyHint" style="display:none;">Pas assez de données pour tracer une évolution avec les filtres actuels.</p>
+      </div>
       <div class="card">
         <div class="top-actions">
           <h2 style="margin:0;">Moyennes par candidat</h2>
@@ -579,26 +599,6 @@
         <h2 style="margin-bottom:2px;">Analyse</h2>
         <p class="hint" style="margin-top:0;">Effet du retrait des candidats décochés sur les autres, et meilleur/pire scénario quand un seul candidat est sélectionné.</p>
         <div id="analysisBlock"><p class="hint" style="margin-top:0;">Tous les candidats sont actuellement inclus — décochez-en un pour voir qui bénéficie de son retrait.</p></div>
-      </div>
-
-      <div class="card">
-        <div class="top-actions">
-          <h2 style="margin:0;">Évolution dans le temps</h2>
-          <div class="field" style="margin:0; width:auto; display:flex; gap:8px;">
-            <select id="chartZoom" style="width:auto;">
-              <option value="all">Tout l'historique</option>
-              <option value="3m">3 derniers mois</option>
-              <option value="1m">1 dernier mois</option>
-            </select>
-            <select id="chartMode" style="width:auto;">
-              <option value="bloc">Vue par bloc politique</option>
-              <option value="candidat">Vue par candidat sélectionné</option>
-            </select>
-          </div>
-        </div>
-        <p class="hint" style="margin-top:0;" id="chartSubHint">Moyenne mensuelle, avec les mêmes filtres (candidats, instituts, mois, hypothèses) que le tableau ci-dessus.</p>
-        <canvas id="trendChart" height="366" style="display: block; box-sizing: border-box; height: 293px; width: 800px;" width="1000"></canvas>
-        <p class="hint" id="chartEmptyHint" style="display:none;">Pas assez de données pour tracer une évolution avec les filtres actuels.</p>
       </div>
     </div>
   </div>
