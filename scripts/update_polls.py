@@ -40,9 +40,6 @@ WIKI_API_URL = "https://en.wikipedia.org/w/api.php"
 WIKI_PAGE_TITLE = "Opinion_polling_for_the_2027_French_presidential_election"
 DATA_PATH = Path(__file__).parent.parent / "data.json"
 
-# Correspondance nom Wikipédia (anglais, complet) -> nom utilisé dans l'outil.
-# Sert surtout pour les cas particuliers ; les nouveaux candidats sont sinon détectés
-# et créés automatiquement (voir derive_short_name / infer_bloc_from_neighbors).
 NAME_MAP = {
     "Nathalie Arthaud": "Arthaud",
     "Philippe Poutou": "Poutou",
@@ -72,11 +69,6 @@ PARTICLES = {"de", "du", "des", "le", "la", "van", "von"}
 
 
 def derive_short_name(full_name):
-    """
-    Dérive un nom court à partir du nom complet Wikipédia, sur le même principe que
-    les noms déjà utilisés dans l'outil (nom de famille seul, particules courantes
-    conservées : 'de Villepin', etc.).
-    """
     parts = full_name.strip().split()
     if len(parts) <= 1:
         return full_name.strip()
@@ -89,12 +81,6 @@ def derive_short_name(full_name):
 
 
 def infer_bloc_from_neighbors(col_index, ordered_names, candidates_by_name):
-    """
-    Devine le bloc politique d'un nouveau candidat à partir de ses voisins de colonne
-    déjà connus. Wikipédia ordonne les candidats de gauche à droite sur l'échiquier
-    politique (indiqué explicitement dans le texte de la page), donc un candidat
-    encadré par deux candidats du même bloc est très probablement du même bloc.
-    """
     left_bloc = None
     for j in range(col_index - 1, -1, -1):
         nm = ordered_names[j]
@@ -114,11 +100,11 @@ def infer_bloc_from_neighbors(col_index, ordered_names, candidates_by_name):
     if right_bloc and not left_bloc:
         return right_bloc, True
     if left_bloc and right_bloc:
-        return left_bloc, False  # blocs différents des deux côtés : à vérifier
-    return "CENTRE", False  # aucun voisin connu : repli par défaut, à vérifier
+        return left_bloc, False
+    return "CENTRE", False
 
 
-BLOC_OF = {}  # rempli dynamiquement à partir de data.json ci-dessous
+BLOC_OF = {}
 
 
 def load_data():
@@ -127,8 +113,9 @@ def load_data():
 
 
 def save_data(data):
+    text = json.dumps(data, ensure_ascii=False, indent=1, allow_nan=False)
     with open(DATA_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=1)
+        f.write(text)
 
 
 def candidate_signature(scores):
@@ -163,13 +150,16 @@ def find_matching_hypothesis(scores, polls):
 
 def parse_percent(cell):
     cell = (cell or "").strip()
-    if cell in ("", "–", "-", "—"):
+    if cell.lower() in ("", "–", "-", "—", "nan", "none"):
         return None
     cell = cell.replace("%", "").replace("<", "").strip()
     try:
-        return float(cell)
+        val = float(cell)
     except ValueError:
         return None
+    if val != val:
+        return None
+    return val
 
 
 def parse_sample(cell):
@@ -180,11 +170,6 @@ def parse_sample(cell):
 
 
 def parse_date_range(cell, ref_year_hint=None):
-    """
-    Convertit une plage de type '9-10 Sep 2026' ou '30 Sep - 1 Oct 2025' en date M/D/YY
-    (on retient la date de FIN de la vague, comme dans le reste du jeu de données).
-    Retourne None si non reconnu (ex : lignes d'annonce de candidature).
-    """
     cell = (cell or "").strip()
     months = {
         "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
@@ -204,17 +189,6 @@ def parse_date_range(cell, ref_year_hint=None):
 
 
 def fetch_wikipedia_table():
-    """
-    Récupère le tout premier tableau de sondages premier tour de la page (le plus
-    récent). Utilise pandas.read_html pour profiter de sa gestion des rowspan/colspan.
-
-    Passe par l'API MediaWiki (action=parse) plutôt que par l'URL publique de
-    l'article : la page publique passe par un cache de contenu (CDN) qui peut
-    renvoyer des versions différentes de la page selon le serveur qui répond,
-    ce qui a été observé concrètement sur cette page très éditée. L'API interroge
-    directement le cache de rendu de MediaWiki, mis à jour à chaque modification,
-    et est donc beaucoup plus fiable pour un usage automatisé comme celui-ci.
-    """
     import io
     import pandas as pd
 
@@ -236,20 +210,11 @@ def fetch_wikipedia_table():
         raise RuntimeError(f"Erreur API MediaWiki : {payload['error']}")
     html = payload["parse"]["text"]
 
-    # pandas récent exige un objet fichier-like (io.StringIO), pas une chaîne brute,
-    # sinon il tente d'interpréter le HTML comme un chemin de fichier.
     tables = pd.read_html(io.StringIO(html))
     if not tables:
         raise RuntimeError("Aucun tableau trouvé sur la page.")
 
-    # On identifie le bon tableau par la PRÉSENCE de colonnes "firm"/"date" plutôt
-    # que par un texte exact : plus robuste aux variations de mise en forme Wikipédia
-    # (ex. libellé caché dans une infobulle plutôt que dans le texte visible).
     for t in tables:
-        # Certains tableaux ont un en-tête sur deux niveaux (colonnes fusionnées côté
-        # Wikipédia), ce que pandas restitue comme un MultiIndex de tuples, ex.
-        # ("Nathalie Arthaud", "Unnamed: 3_level_1"). On aplatit sur le premier niveau,
-        # qui porte le vrai libellé, pour retrouver des noms de colonnes simples.
         if isinstance(t.columns, pd.MultiIndex):
             t = t.copy()
             t.columns = [c[0] if isinstance(c, tuple) else c for c in t.columns]
@@ -257,8 +222,6 @@ def fetch_wikipedia_table():
         has_firm = any("firm" in c for c in cols_lower)
         has_date = any("date" in c or "fieldwork" in c for c in cols_lower)
         if has_firm and has_date:
-            # On renomme les colonnes repérées vers des noms fixes, pour que le
-            # reste du script n'ait pas à se soucier du libellé exact trouvé.
             rename = {}
             for c in t.columns:
                 cl = str(c).lower()
@@ -285,9 +248,8 @@ def main():
         df = fetch_wikipedia_table()
     except Exception as e:
         print(f"::warning::Échec de récupération de la page Wikipédia : {e}")
-        sys.exit(0)  # on s'arrête proprement, sans modifier data.json
+        sys.exit(0)
 
-    # --- Diagnostic temporaire : à retirer une fois le comportement confirmé fiable ---
     print(f"[diag] Tableau trouvé : {len(df)} lignes.")
     print(f"[diag] Colonnes : {list(df.columns)}")
     if "Fieldwork date" in df.columns:
@@ -296,19 +258,12 @@ def main():
         print(f"[diag] 5 premières dates converties : {parsed}")
     if "Polling firm" in df.columns:
         print(f"[diag] 5 premiers instituts : {df['Polling firm'].head(5).tolist()}")
-    # --- Fin diagnostic ---
 
     header = list(df.columns)
-    # Colonnes attendues : "Polling firm", "Fieldwork date", "Sample size", puis un candidat par colonne
     candidate_cols = [c for c in header if c not in ("Polling firm", "Fieldwork date", "Sample size")]
 
-    # --- Détection et création automatique des nouveaux candidats ---
-    # On résout chaque colonne candidat vers un nom connu (via NAME_MAP ou nom déjà
-    # présent dans data.json) ou, à défaut, on la considère comme un nouveau candidat :
-    # on lui dérive un nom court et on devine son bloc politique via ses voisins de
-    # colonne (Wikipédia ordonne les candidats de gauche à droite sur l'échiquier).
     candidates_by_name = {c["name"]: c for c in known_candidates}
-    resolved_names = []  # même ordre que candidate_cols
+    resolved_names = []
     newly_created = []
     for col in candidate_cols:
         col_clean = col.strip()
@@ -319,7 +274,7 @@ def main():
         if derived in candidates_by_name:
             resolved_names.append(derived)
             continue
-        resolved_names.append(derived)  # nouveau nom, pas encore dans candidates_by_name
+        resolved_names.append(derived)
 
     for idx, col in enumerate(candidate_cols):
         name = resolved_names[idx]
@@ -347,7 +302,6 @@ def main():
         field = str(row.get("Fieldwork date", "")).strip()
         sample_raw = str(row.get("Sample size", "")).strip()
 
-        # Ligne d'annonce/événement (peu de colonnes remplies) : on l'ignore
         candidate_values = [row.get(c) for c in candidate_cols]
         non_empty = [v for v in candidate_values if str(v).strip() not in ("", "nan", "–", "-")]
         if len(non_empty) < 2 and not firm:
@@ -373,7 +327,6 @@ def main():
         if not any_score:
             continue
 
-        # Un sondage déjà connu (même institut+date+mêmes candidats testés) ? on saute.
         sig = candidate_signature(scores)
         already_exists = any(
             p["institut"].lower() == current_institut.lower()
@@ -415,7 +368,7 @@ def main():
         return
 
     data["polls"].extend(new_polls)
-    save_data(data)  # sauvegarde aussi les éventuels nouveaux candidats, même sans sondage
+    save_data(data)
 
     print(f"{len(new_polls)} nouveau(x) sondage(s) ajouté(s) :")
     for p in new_polls:
