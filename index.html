@@ -1118,13 +1118,35 @@ function renderTrendSentence(polls) {
   const buckets = [...new Set(polls.map(monthKeyOf).filter(Boolean))].sort();
   if (buckets.length < 2) return '';
   const candidates = dataset.candidates.filter(c => state.selectedCandidates.has(c.name));
+  if (!candidates.length) return '';
+
+  const computeSeries = (c) => buckets.map(bKey => {
+    const inBucket = polls.filter(p => monthKeyOf(p) === bKey);
+    const vals = inBucket.map(p => p.scores[c.name]).filter(v => v !== null && v !== undefined);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  });
+
+  // Un seul candidat sélectionné : on affiche systématiquement sa propre tendance
+  // (hausse, baisse ou stable), plutôt que la logique "plus forte hausse/baisse"
+  // qui ne s'appliquait qu'à plusieurs candidats en comparaison.
+  if (candidates.length === 1) {
+    const c = candidates[0];
+    const series = computeSeries(c);
+    const firstIdx = series.findIndex(v => v !== null);
+    let lastIdx = -1;
+    for (let i = series.length - 1; i >= 0; i--) { if (series[i] !== null) { lastIdx = i; break; } }
+    if (firstIdx === -1 || lastIdx === -1 || firstIdx === lastIdx) return '';
+    const delta = series[lastIdx] - series[firstIdx];
+    const arrow = delta > 0.3 ? '▲' : delta < -0.3 ? '▼' : '→';
+    const verb = delta > 0.3 ? 'en hausse de' : delta < -0.3 ? 'en baisse de' : 'stable, variation de';
+    return `<p class="hint" style="margin:0 0 10px; padding-bottom:10px; border-bottom:1px solid var(--border);">
+      <strong>Tendance de ${c.name}</strong> : ${arrow} ${verb} ${Math.abs(delta).toFixed(1)} pt entre ${monthLabelOf(buckets[firstIdx])} (${series[firstIdx].toFixed(1)}%) et ${monthLabelOf(buckets[lastIdx])} (${series[lastIdx].toFixed(1)}%).
+    </p>`;
+  }
+
   const deltas = [];
   candidates.forEach(c => {
-    const series = buckets.map(bKey => {
-      const inBucket = polls.filter(p => monthKeyOf(p) === bKey);
-      const vals = inBucket.map(p => p.scores[c.name]).filter(v => v !== null && v !== undefined);
-      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-    });
+    const series = computeSeries(c);
     const firstIdx = series.findIndex(v => v !== null);
     let lastIdx = -1;
     for (let i = series.length - 1; i >= 0; i--) { if (series[i] !== null) { lastIdx = i; break; } }
