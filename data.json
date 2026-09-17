@@ -4925,6 +4925,45 @@
    "sample": 1711,
    "registered": null,
    "source": "wikipedia-auto"
+  },
+  {
+   "cle": "",
+   "hypothese": "Hypothèse 39 : Le Pen, Zemmour",
+   "institut": "Ipsos",
+   "date": "9/9/26",
+   "isReal": true,
+   "scores": {
+    "Glucksmann": null,
+    "Le Pen": NaN,
+    "Bouamrane": null,
+    "Lasalle": null,
+    "Hollande": null,
+    "Asselineau": null,
+    "Bertrand": null,
+    "Knafo": null,
+    "Arthaud": null,
+    "Lisnard": null,
+    "Philippe": null,
+    "Ruffin": null,
+    "Roussel": null,
+    "Le Maire": null,
+    "de Villepin": null,
+    "Mélenchon": null,
+    "Zemmour": NaN,
+    "Attal": null,
+    "Retailleau": null,
+    "Poutou": null,
+    "Dupont-Aignan": null,
+    "Tondelier": null,
+    "Bardella": null,
+    "Faure": null
+   },
+   "blocSums": {
+    "BLOC DROITE": NaN
+   },
+   "sample": 13060,
+   "registered": null,
+   "source": "wikipedia-auto"
   }
  ],
  "referenceRows": [
