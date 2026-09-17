@@ -5063,5 +5063,85 @@
    "sample": null,
    "registered": null
   }
+ ],
+ "rejectionRates": [
+  {
+   "candidate": "Mélenchon",
+   "value": 62,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti LFI)"
+  },
+  {
+   "candidate": "Tondelier",
+   "value": 40,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti Écologistes)"
+  },
+  {
+   "candidate": "Faure",
+   "value": 36,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti PS)"
+  },
+  {
+   "candidate": "Hollande",
+   "value": 36,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti PS)"
+  },
+  {
+   "candidate": "Attal",
+   "value": 45,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti Renaissance)"
+  },
+  {
+   "candidate": "Le Maire",
+   "value": 45,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti Renaissance)"
+  },
+  {
+   "candidate": "Retailleau",
+   "value": 33,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti LR)"
+  },
+  {
+   "candidate": "Bertrand",
+   "value": 33,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti LR)"
+  },
+  {
+   "candidate": "Lisnard",
+   "value": 33,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti LR)"
+  },
+  {
+   "candidate": "Le Pen",
+   "value": 45,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti RN)"
+  },
+  {
+   "candidate": "Bardella",
+   "value": 45,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti RN)"
+  },
+  {
+   "candidate": "Zemmour",
+   "value": 51,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti Reconquête)"
+  },
+  {
+   "candidate": "Knafo",
+   "value": 51,
+   "date": "9/11/26",
+   "institut": "Ipsos-BVA/CEVIPOF (parti Reconquête)"
+  }
  ]
 }
