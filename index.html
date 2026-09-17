@@ -926,6 +926,26 @@ function getFilteredPolls() {
   });
 }
 
+function getChartPolls() {
+  // Comme getFilteredPolls(), mais SANS le filtre "Période" : le graphique de
+  // tendances doit toujours pouvoir montrer l'historique complet, même si la
+  // barre latérale est réglée sur un seul mois (ex : réglage par défaut).
+  const search = state.hypSearch.trim().toLowerCase();
+  let pool = dataset.polls;
+  return pool.filter(p => {
+    if (p.institut && !state.selectedInstituts.has(p.institut) && dataset.polls.includes(p)) return false;
+    if (search && !p.hypothese.toLowerCase().includes(search) && !p.institut.toLowerCase().includes(search)) return false;
+    if (state.excludeUnselected) {
+      for (const c of dataset.candidates) {
+        if (state.selectedCandidates.has(c.name)) continue;
+        const v = p.scores[c.name];
+        if (v !== null && v !== undefined) return false;
+      }
+    }
+    return true;
+  });
+}
+
 function computeResults() {
   const polls = getFilteredPolls();
   const results = [];
@@ -1077,8 +1097,8 @@ function renderChart(polls) {
 
   const subHint = document.getElementById("chartSubHint");
   subHint.textContent = state.chartZoom === "all"
-    ? "Moyenne mensuelle, avec les mêmes filtres (candidats, instituts, mois, hypothèses) que le tableau ci-dessus."
-    : `Moyenne hebdomadaire sur ${state.chartZoom === "1m" ? "le dernier mois" : "les 3 derniers mois"}, avec les mêmes filtres que le tableau ci-dessus.`;
+    ? "Moyenne mensuelle, sur tout l'historique disponible (indépendant du filtre \"Période\" ; respecte candidats, instituts et hypothèses)."
+    : `Moyenne hebdomadaire sur ${state.chartZoom === "1m" ? "le dernier mois" : "les 3 derniers mois"} (indépendant du filtre \"Période\" ; respecte candidats, instituts et hypothèses).`;
 
   const datasets = series.map(s => ({
     label: s.label,
@@ -1492,11 +1512,11 @@ function render() {
   }
 
   document.getElementById("analysisBlock").innerHTML =
-    renderTrendSentence(polls) +
+    renderTrendSentence(getChartPolls()) +
     renderPotentielRanking(results) +
     renderRemovalAnalysis(results) + renderSingleCandidateAnalysis(getBaselinePolls());
 
-  renderChart(polls);
+  renderChart(getChartPolls());
 }
 
 document.getElementById("selAll").addEventListener("click", () => {
