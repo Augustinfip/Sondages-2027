@@ -193,11 +193,6 @@
       </div>
 
       <div class="card">
-        <h2>Instituts</h2>
-        <div class="institut-list" id="institutList"><label class="chip active"><input type="checkbox" checked=""> Elabe</label><label class="chip active"><input type="checkbox" checked=""> Ifop</label><label class="chip active"><input type="checkbox" checked=""> Ipsos</label><label class="chip active"><input type="checkbox" checked=""> Odoxa</label><label class="chip active"><input type="checkbox" checked=""> OpinionWay</label><label class="chip active"><input type="checkbox" checked=""> Toluna</label><label class="chip active"><input type="checkbox" checked=""> Verian</label></div>
-      </div>
-
-      <div class="card">
         <div class="top-actions">
           <h2 style="margin:0;">Période</h2>
           <div>
@@ -207,6 +202,11 @@
         </div>
         <div class="institut-list" id="monthList"><label class="chip active"><input type="checkbox" checked=""> Mars 2026</label><label class="chip active"><input type="checkbox" checked=""> Mai 2026</label><label class="chip active"><input type="checkbox" checked=""> Juin 2026</label><label class="chip active"><input type="checkbox" checked=""> Juillet 2026</label><label class="chip active"><input type="checkbox" checked=""> Août 2026</label><label class="chip active"><input type="checkbox" checked=""> Septembre 2026</label></div>
         <p class="hint" style="margin-bottom:0;">Décochez un mois pour l'exclure des moyennes (ex : décocher juillet et août pour ne garder que septembre).</p>
+      </div>
+
+      <div class="card">
+        <h2>Instituts</h2>
+        <div class="institut-list" id="institutList"><label class="chip active"><input type="checkbox" checked=""> Elabe</label><label class="chip active"><input type="checkbox" checked=""> Ifop</label><label class="chip active"><input type="checkbox" checked=""> Ipsos</label><label class="chip active"><input type="checkbox" checked=""> Odoxa</label><label class="chip active"><input type="checkbox" checked=""> OpinionWay</label><label class="chip active"><input type="checkbox" checked=""> Toluna</label><label class="chip active"><input type="checkbox" checked=""> Verian</label></div>
       </div>
 
       <div class="card">
@@ -230,9 +230,30 @@
     </div>
 
     <div class="layout-results">
+
+
       <div class="card">
         <div class="top-actions">
-          <h2 style="margin-bottom:2px;">Résumé par bloc</h2>
+          <h2 style="margin:0;">Tendances</h2>
+          <div class="field" style="margin:0; width:auto; display:flex; gap:8px;">
+            <select id="chartZoom" style="width:auto;">
+              <option value="all">Tout l'historique</option>
+              <option value="3m">3 derniers mois</option>
+              <option value="1m">1 dernier mois</option>
+            </select>
+            <select id="chartMode" style="width:auto;">
+              <option value="bloc">Vue par bloc politique</option>
+              <option value="candidat">Vue par candidat sélectionné</option>
+            </select>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:0;" id="chartSubHint">Moyenne mensuelle, avec les mêmes filtres (candidats, instituts, mois, hypothèses) que le tableau ci-dessus.</p>
+        <canvas id="trendChart" height="366" style="display: block; box-sizing: border-box; height: 293px; width: 800px;" width="1000"></canvas>
+        <p class="hint" id="chartEmptyHint" style="display:none;">Pas assez de données pour tracer une évolution avec les filtres actuels.</p>
+      </div>
+      <div class="card">
+        <div class="top-actions">
+          <h2 style="margin-bottom:2px;" id="blocSummaryTitle">Résumé par bloc</h2>
           <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.8rem; font-weight:600; color: var(--text);">
             <input type="checkbox" id="subdivideBloc" style="width:14px;height:14px;">
             Détail par tendance politique (6 groupes)
@@ -261,27 +282,6 @@
           <span>1er tour 2017 : 48.3%</span>
           <span>1er tour 2022 : 40.2%</span>
         </div></div></div>
-      </div>
-
-
-      <div class="card">
-        <div class="top-actions">
-          <h2 style="margin:0;">Évolution dans le temps</h2>
-          <div class="field" style="margin:0; width:auto; display:flex; gap:8px;">
-            <select id="chartZoom" style="width:auto;">
-              <option value="all">Tout l'historique</option>
-              <option value="3m">3 derniers mois</option>
-              <option value="1m">1 dernier mois</option>
-            </select>
-            <select id="chartMode" style="width:auto;">
-              <option value="bloc">Vue par bloc politique</option>
-              <option value="candidat">Vue par candidat sélectionné</option>
-            </select>
-          </div>
-        </div>
-        <p class="hint" style="margin-top:0;" id="chartSubHint">Moyenne mensuelle, avec les mêmes filtres (candidats, instituts, mois, hypothèses) que le tableau ci-dessus.</p>
-        <canvas id="trendChart" height="366" style="display: block; box-sizing: border-box; height: 293px; width: 800px;" width="1000"></canvas>
-        <p class="hint" id="chartEmptyHint" style="display:none;">Pas assez de données pour tracer une évolution avec les filtres actuels.</p>
       </div>
       <div class="card">
         <div class="top-actions">
@@ -812,7 +812,7 @@ function allMonthKeys() {
 }
 
 // Décochés par défaut à l'ouverture, mais toujours sélectionnables manuellement.
-const DEFAULT_UNCHECKED_CANDIDATES = ["Bardella"];
+const DEFAULT_CHECKED_CANDIDATES = ["Mélenchon", "Arthaud", "Glucksmann", "Tondelier", "Roussel", "Attal", "Philippe", "Retailleau", "Le Pen", "Zemmour", "Dupont-Aignan"];
 const DEFAULT_UNCHECKED_INSTITUTS = ["Cluster17"];
 
 let state;
@@ -1009,6 +1009,27 @@ function buildTimeSeries(polls) {
   const labels = buckets.map(labelFn);
 
   if (state.chartMode === "bloc") {
+    if (state.subdivideBloc) {
+      const series = SUB_BLOC_DISPLAY_ORDER.map(sb => ({
+        label: sb, color: SUB_BLOC_COLOR[sb],
+        data: buckets.map(bKey => {
+          const inBucket = zoomed.filter(p => keyFn(p) === bKey);
+          const vals = [];
+          inBucket.forEach(p => {
+            let sum = 0, has = false;
+            dataset.candidates.forEach(c => {
+              const v = p.scores[c.name];
+              if (v === null || v === undefined) return;
+              const csb = subBlocOf(c.name, c.bloc) || "Non classé";
+              if (csb === sb) { sum += v; has = true; }
+            });
+            if (has) vals.push(sum);
+          });
+          return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+        })
+      })).filter(s => s.data.some(v => v !== null));
+      return { buckets, labels, series };
+    }
     const series = ["BLOC GAUCHE", "CENTRE", "BLOC DROITE"].map(bloc => ({
       label: BLOC_LABEL[bloc], color: BLOC_HEX[bloc],
       data: buckets.map(bKey => {
@@ -1129,10 +1150,9 @@ function renderTrendSentence(polls) {
     const vals = inBucket.map(p => p.scores[c.name]).filter(v => v !== null && v !== undefined);
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   });
+  const periodLabel = `${labelFn(buckets[0])} → ${labelFn(buckets[buckets.length - 1])}`;
 
-  // Un seul candidat sélectionné : on affiche systématiquement sa propre tendance
-  // (hausse, baisse ou stable), plutôt que la logique "plus forte hausse/baisse"
-  // qui ne s'appliquait qu'à plusieurs candidats en comparaison.
+  // Un seul candidat sélectionné : phrase dédiée, plus lisible qu'un classement à une ligne.
   if (candidates.length === 1) {
     const c = candidates[0];
     const series = computeSeries(c);
@@ -1148,6 +1168,9 @@ function renderTrendSentence(polls) {
     </p>`;
   }
 
+  // Plusieurs candidats : classement complet, avec la plus forte hausse et la plus forte
+  // baisse mises en valeur, et tous les autres candidats cochés visibles aussi (respecte
+  // les filtres instituts/mois déjà appliqués en amont via `polls`).
   const deltas = [];
   candidates.forEach(c => {
     const series = computeSeries(c);
@@ -1155,19 +1178,27 @@ function renderTrendSentence(polls) {
     let lastIdx = -1;
     for (let i = series.length - 1; i >= 0; i--) { if (series[i] !== null) { lastIdx = i; break; } }
     if (firstIdx === -1 || lastIdx === -1 || firstIdx === lastIdx) return;
-    const delta = series[lastIdx] - series[firstIdx];
-    if (Math.abs(delta) >= 0.3) deltas.push({ name: c.name, delta });
+    deltas.push({ name: c.name, delta: series[lastIdx] - series[firstIdx], from: series[firstIdx], to: series[lastIdx] });
   });
   if (!deltas.length) return '';
   deltas.sort((a, b) => b.delta - a.delta);
-  const gainer = deltas[0];
-  const loser = deltas[deltas.length - 1];
-  const periodLabel = `${labelFn(buckets[0])} → ${labelFn(buckets[buckets.length - 1])}`;
-  const parts = [];
-  if (gainer && gainer.delta > 0) parts.push(`${gainer.name} +${gainer.delta.toFixed(1)} pt`);
-  if (loser && loser.delta < 0 && loser.name !== gainer.name) parts.push(`${loser.name} ${loser.delta.toFixed(1)} pt`);
-  if (!parts.length) return '';
-  return `<p class="hint" style="margin:0 0 10px; padding-bottom:10px; border-bottom:1px solid var(--border);"><strong>Tendance</strong> (${periodLabel}) : ${parts.join(', ')}.</p>`;
+
+  const rows = deltas.map((d, i) => {
+    let cls = 'analysis-neutral', badge = '';
+    if (i === 0 && d.delta > 0.05) { cls = 'analysis-gain'; badge = ' 🔺 plus forte hausse'; }
+    else if (i === deltas.length - 1 && d.delta < -0.05) { cls = 'analysis-loss'; badge = ' 🔻 plus forte baisse'; }
+    const sign = d.delta >= 0 ? '+' : '';
+    return `<div class="analysis-row ${cls}">
+      <span class="analysis-name">${d.name}${badge ? `<span class="hint">${badge}</span>` : ''}</span>
+      <span class="analysis-delta">${sign}${d.delta.toFixed(1)} pt</span>
+      <span class="analysis-detail">${d.from.toFixed(1)}% → ${d.to.toFixed(1)}%</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="single-analysis" style="margin-top:0; padding-top:0; border-top:none;">
+    <p class="hint" style="margin-top:0;"><strong>Tendances</strong> (${periodLabel}) — évolution de chaque candidat coché sur la période affichée :</p>
+    <div class="analysis-list">${rows}</div>
+  </div>`;
 }
 
 function renderPotentielRanking(results) {
@@ -1190,7 +1221,7 @@ function renderPotentielRanking(results) {
       <span class="analysis-delta">potentiel ${c.potentiel.toFixed(1)}</span>
     </div>`).join('');
   return `<div class="single-analysis" style="margin-top:0; padding-top:0; border-top:none;">
-    <p class="hint" style="margin-top:0;"><strong>Potentiel de rassemblement</strong> — moyenne × (100 − taux de rejet) ÷ 100, pour les candidats dont un taux de rejet a été renseigné :</p>
+    <p class="hint" style="margin-top:0;"><strong>Le moins rejeté</strong> — classement par moyenne × (100 − taux de rejet) ÷ 100 : en tête, le candidat qui combine le mieux un bon score et le moins de rejet dans l'opinion :</p>
     <p class="hint" style="margin-top:0; color:#a05a00;">⚠️ Les taux de rejet actuels sont approximés à partir du rejet du <strong>parti</strong> (pas de la personnalité elle-même), mesuré par l'enquête Ipsos-BVA/CEVIPOF du 11 septembre 2026 — à interpréter avec prudence.</p>
     <div class="analysis-list">${rows}</div>
   </div>`;
@@ -1362,6 +1393,18 @@ function render() {
   const { results, pollsUsed, polls } = computeResults();
   lastResults = results;
   const maxMoy = Math.max(...results.map(r => r.moyenne || 0), 1);
+
+  const blocTitleEl = document.getElementById("blocSummaryTitle");
+  if (blocTitleEl) {
+    const activeMonths = [...state.selectedMonths].sort();
+    if (activeMonths.length === 1) {
+      blocTitleEl.textContent = `Résumé par bloc — ${monthLabelOf(activeMonths[0])}`;
+    } else if (activeMonths.length === allMonthKeys().length) {
+      blocTitleEl.textContent = "Résumé par bloc — tout l'historique";
+    } else {
+      blocTitleEl.textContent = `Résumé par bloc — ${activeMonths.length} mois sélectionnés`;
+    }
+  }
 
   const totalStats = computeSampleStats(dataset.polls);
   document.getElementById("subtitleText").textContent =
@@ -1606,9 +1649,9 @@ REF_2017 = dataset.referenceRows.find(r => /2017/.test(r.hypothese)) || null;
 REF_2022 = dataset.referenceRows.find(r => /2022/.test(r.hypothese)) || null;
 
   state = {
-  selectedCandidates: new Set(dataset.candidates.map(c => c.name).filter(n => !DEFAULT_UNCHECKED_CANDIDATES.includes(n))),
+  selectedCandidates: new Set(dataset.candidates.map(c => c.name).filter(n => DEFAULT_CHECKED_CANDIDATES.includes(n))),
   selectedInstituts: new Set([...new Set(dataset.polls.map(p => p.institut))].filter(i => !DEFAULT_UNCHECKED_INSTITUTS.includes(i))),
-  selectedMonths: new Set(allMonthKeys()),
+  selectedMonths: new Set(allMonthKeys().slice(-1)),
   hypSearch: "",
   excludeUnselected: true,
   chartMode: "bloc",
