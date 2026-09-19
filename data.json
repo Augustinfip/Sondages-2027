@@ -95,6 +95,10 @@
   {
    "name": "Bouamrane",
    "bloc": "BLOC GAUCHE"
+  },
+  {
+   "name": "Royal",
+   "bloc": "BLOC GAUCHE"
   }
  ],
  "polls": [
@@ -4923,6 +4927,48 @@
     "BLOC DROITE": 44.5
    },
    "sample": 1711,
+   "registered": null,
+   "source": "wikipedia-auto"
+  },
+  {
+   "cle": "",
+   "hypothese": "Hypothèse 39 : Mélenchon, Roussel, Tondelier, Arthaud, Philippe, Attal, Le Pen, Retailleau, Zemmour, Lisnard, Dupont-Aignan, Bouamrane, Royal",
+   "institut": "OpinionWay",
+   "date": "9/10/26",
+   "isReal": true,
+   "scores": {
+    "Bouamrane": 1.0,
+    "Lasalle": null,
+    "Knafo": null,
+    "Tondelier": 3.0,
+    "Poutou": null,
+    "Dupont-Aignan": 3.0,
+    "Glucksmann": null,
+    "Philippe": 16.0,
+    "Attal": 8.0,
+    "Arthaud": 1.0,
+    "Bardella": null,
+    "Mélenchon": 17.0,
+    "Le Pen": 33.0,
+    "Bertrand": null,
+    "de Villepin": null,
+    "Ruffin": null,
+    "Lisnard": 2.0,
+    "Faure": null,
+    "Retailleau": 7.0,
+    "Le Maire": null,
+    "Roussel": 4.0,
+    "Zemmour": 2.0,
+    "Asselineau": null,
+    "Royal": 3.0,
+    "Hollande": null
+   },
+   "blocSums": {
+    "BLOC GAUCHE": 29.0,
+    "CENTRE": 24.0,
+    "BLOC DROITE": 47.0
+   },
+   "sample": 1001,
    "registered": null,
    "source": "wikipedia-auto"
   }
